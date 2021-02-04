@@ -156,7 +156,7 @@ fCoreLogScale <- function(alpha, x){
   # Transformation y = log(x+1)
   # Returning f(y)
   
-  ifelse( x > 0, log(x+1)^(alpha-1)*exp(-log(x+1)), 0 )
+  ifelse( x > 0, log(x)*(alpha-1)-x, 0 )
   
 }
 
@@ -172,7 +172,7 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
   x1_lower = 0
   x1_upper = alpha - 1
   x2_lower = 0
-  x2_upper = alpha + 1 
+  x2_upper = alpha
   
   # Bookkeeping
   num_accepted_samples = 0
@@ -181,11 +181,11 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
   # Trial implementation in for-loop
   target = rep(0,n)
   while (num_accepted_samples < n ){
-    x1 = log(runif(1, x1_lower, x1_upper)+1)
-    x2 = log(runif(1, x2_lower, x2_upper)+1)
-    if (x1 <= sqrt(fCoreLogScale(alpha,x2/x1))){
+    x1 = runif(1, x1_lower, x1_upper)
+    x2 = runif(1, x2_lower, x2_upper)
+    if (log(x1) <= 1/2*fCoreLogScale(alpha,x2/x1)){
       num_accepted_samples = num_accepted_samples + 1
-      target[num_accepted_samples] = x2/x1
+      target[num_accepted_samples] = log(x2)-log(x1)
     }
     num_total_samples = num_total_samples + 1 
   }
@@ -196,9 +196,11 @@ alpha = 2.0
 sample_size=100000
 
 samples = myGammaRatioOfUniformsLogScale(alpha,sample_size)
-hist(exp(samples)-1, breaks=50, freq=FALSE)
+hist(exp(samples), breaks=50, freq=FALSE)
 curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
 
+
+mean(exp(samples))
 ```
 
 
@@ -210,9 +212,63 @@ We now consider aforementioned Gamma distribution with generally $\alpha>0$ and 
 
 Let $X_1\sim G(\alpha_1,1)$ and $X_2\sim G(\alpha_2,1)$ independent random variables. 
 
-Remember, that the moment generating function $M_x(t)$ for a $G(\alpha,1)$ distributed random variable looks as $(1-t)^{-\alpha}$ and that a moment generating function uniquely determines the law of a random variable.
+Remember, that the moment generating function $M_X(t)$ for a $G(\alpha,1)$ distributed random variable looks as $(1-t)^{-\alpha}$ and that a moment generating function uniquely determines the law of a random variable.
 
-Hence, we consider the moment generating function of above's sum: ........................
+Hence, we consider the moment generating function of above's sum $M_{X_1+X_2}(t)$. Since both random variables are independent we can expand $M_{X_1+X_2}(t)=M_{X_1}(t)M_{X_2}(t)=(1-t)^{-\alpha_1}(1-t)^{-\alpha_2}=(1-t)^{-(\alpha_1+\alpha_2)}$. This is the moment generating function of $G(\alpha_1+\alpha_2,1)$ which yields that $X_1+X_2\sim G(\alpha_1+\alpha_2,1)$.
+
+### (b)
+
+The gamma distribution $G(1,1)$ is equivalent to the Exponential distribution $Exp(1)$. To facilate above's result we use induction and for $\alpha>1$ we construct $X = \sum_{i=1}^{\lfloor\alpha\rfloor}Exp(1) + G(\alpha-\lfloor\alpha\rfloor,1)$
+
+
+```{r}
+myGammaUsingExp <- function(alpha, n){
+  # This function returns n samples of the Gamma(alpha,1) distribution
+  # for alpha > 1 using the induction over Exponential distribution
+  
+  # Check sanity of input 
+  stopifnot( alpha > 1 )
+  
+  # Loop for induction
+  sample = rep(0, n)
+  for (i in 1:floor(alpha)){
+    sample = sample + rexp(1, n) #REQUIRES P1(a)
+  }
+  sample = sample + myGammaRejectionSampling(alpha-floor(alpha),n) #REQUIRES P1(a)
+  
+  return(sample)
+  
+}
+
+# PLOT PLOT PLOT
+```
+
+
+## 4
+
+We now consider aforementioned Gamma distribution with generally $\alpha>0$ and also generally $\beta>0$. 
+
+For the rate we have the property if $X\sim Gamma(\alpha,1)$ then $\frac1\beta X\sim Gamma(\alpha,\beta)$.
+
+```{r}
+myGammaGeneral <- function(alpha, beta, n){
+  # This function uses all functions from above 
+  # to sample from a Gamma(alpha,beta) distribution
+  
+  # Sanity check of input
+  stopifnot( alpha > 0 && beta > 0)
+  
+  # Three cases:
+  # 1. alpha < 1 - myGammaRejectionSampling
+  # 2. alpha = 1 - myExponentialInversionSampling
+  # 3. alpha > 1 - myGammaRatioOfUniforms
+  
+  
+}
+```
+
+
+
 
 
 # Problem D
