@@ -80,75 +80,20 @@ myGammaRejectionSampling <- function(alpha, n){
 
 We now consider aforementioned Gamma distribution with $\alpha>1$ and still $\beta=1$. The domain $C_f$ is defined as in the lecture.
 
+Directly, we transform the density on log-scale: $\log f^*(x) = (\alpha-1)log(x) - x$.
+
 
 #### (a)
 
-The domain $C_f$ is contained in the rectangle $[0,a]\times[b_-,b_+] = [0, \alpha-1]\times[0,\alpha+1]$ by the use of the given formulas.
-
+The domain $C_f$ is contained in the rectangle $[0,a]\times[b_-,b_+] = [0, \alpha-1]\times[0,\alpha]$, where $a=\frac12\sup \log f^*(x)$ and $b_\pm=\frac12 \sup_{x\leq\geq0}\{2\log x + \log f^*(x)\}$. Note that $f^*(x)=0$ for $x<0$ and hence $b_-=0$ trivially. We obtain the values for $a$ and $b_-$ by
+1)    differentiation of the supremum argument $\frac{d}{dx}\log f^*(x) = \frac{\alpha-1}{x}-1$ and setting to 0. Since asymptotic analysis for continuous functions yields that the candidate is a unique maximum, we set $a=\frac12(\alpha-1)$.
+2)    differentiation of the supremum argument $\frac{d}{dx} 2\log x + \log f^*(x) = \frac{\alpha+1}{x}-1$ and setting to 0. Since asymptotic analysis for continuous functions yields that the candidate is a unique maximum, we set $b_+=\frac12(\alpha+1)$.
 
 ### (b)
 
-For reference, we start the implementation with the original scale!
+We start with the definition of the log-scaled core of $f$ and the ratio-of-uniform sampling to generate $n$ independent samples from the Gamma distribution.
 
-```{r}
-fCore <- function(alpha, x){
-  # This function evaluates the density of the gamma distribution
-  # with parameters alpha in (0,1) and beta = 1 at the given x
-  
-  ifelse( x > 0, x^(alpha-1)*exp(-x), 0 )
-  
-}
-
-myGammaRatioOfUniforms <- function(alpha, n){
-  # This function generates n samples from the gamma distribution
-  # with parameter alpha in (0,1) and beta = 1 
-  # using the ratio of uniforms method
-  
-  # Check sanity of input 
-  stopifnot( alpha > 1 )
-  
-  # Rectangular domain for uniform sampling
-  x1_lower = 0
-  x1_upper = sqrt(alpha - 1)
-  x2_lower = 0
-  x2_upper = sqrt(alpha + 1) 
-  
-  # Bookkeeping
-  num_accepted_samples = 0
-  num_total_samples = 0
-  
-  # Trial implementation in for-loop
-  target = rep(0,n)
-  while (num_accepted_samples < n ){
-    x1 = runif(1, x1_lower, x1_upper)
-    x2 = runif(1, x2_lower, x2_upper)
-    if (x1 <= sqrt(fCore(alpha,x2/x1))){
-      num_accepted_samples = num_accepted_samples + 1
-      target[num_accepted_samples] = x2/x1
-    }
-    num_total_samples = num_total_samples + 1 
-  }
-  return(target)
-}
-
-alpha = 2.0
-sample_size = 10000
-
-samples = myGammaRatioOfUniforms(alpha,sample_size)
-hist(samples, freq=FALSE, xlim=c(0,10),breaks=50)
-curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
-
-```
-
-############################################################
-############################################################
-############################################################
-
-For the log scale calculations we employ a transformation $?=?$. 
-
---> What transformation is meant by "log scale". Our reference books also just mention but do not explain it....
-
-```{r}
+```{r, fig.cap="\\label{fig:GammaROU} Histogram for the myGammaRatioOfUniformLogScale-function"}
 fCoreLogScale <- function(alpha, x){
   # This function evaluates the density of the gamma distribution
   # with parameters alpha in (0,1) and beta = 1 at the given x
@@ -170,15 +115,15 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
   
   # Rectangular domain for uniform sampling
   x1_lower = 0
-  x1_upper = alpha - 1
+  x1_upper = 1/2*(alpha - 1)
   x2_lower = 0
-  x2_upper = alpha
+  x2_upper = 1/2*(alpha + 1)
   
   # Bookkeeping
   num_accepted_samples = 0
   num_total_samples = 0
   
-  # Trial implementation in for-loop
+  # Generation of n samples with ratio of uniforms method
   target = rep(0,n)
   while (num_accepted_samples < n ){
     x1 = runif(1, x1_lower, x1_upper)
@@ -189,19 +134,42 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
     }
     num_total_samples = num_total_samples + 1 
   }
-  return(target)
+  return(list("num_total_samples" = num_total_samples, "samples" = target))
 }
 
+# Visualisation of samples for alpha = 2 
+# NB! Small sample size leading to bad approximations
 alpha = 2.0
-sample_size=100000
+sample_size=1000
 
 samples = myGammaRatioOfUniformsLogScale(alpha,sample_size)
-hist(exp(samples), breaks=50, freq=FALSE)
+hist(exp(samples$samples), breaks=50, freq=FALSE)
 curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
-
-
-mean(exp(samples))
 ```
+
+In Figure \ref{fig:GammaROU} we see for $\alpha=2$ that the ratio-of-uniform method approximates the target density pretty well. Bigger sample sizes would improve the approximation.
+
+
+We continue with the actual analysis of the efficiency of the ratio-of-uniform method. 
+
+```{r, fig.cap="\\label{fig:efficiency} Number of total samples used to generate 1,000 Gamma(alpha,1)-distributed samples"}
+# Plotting the efficiency of the myGammaRatioOfUniformLogScale-function
+# in dependence of alpha
+
+alphas = c(1.01,1.1,1.25,1.5,2.0,3.0,5.0,10.0,20.0,50.0,100.0,200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900)
+efficiency = rep(0, length(alphas))
+
+for (i in 1:length(alphas)){
+  samples = myGammaRatioOfUniformsLogScale(alphas[i],1000)
+  efficiency[i] = samples$num_total_samples
+}
+
+plot(alphas, efficiency, log="x", type="l",
+     xlab="alpha", ylab="# total samples",
+     main="Total number of used samples w.r.t. alpha")
+```
+
+Figure \ref{fig:GammaROU} shows the number of total samples which are used to generate 1,000 independent samples from the $G(\alpha,1)$ distribution. Due to rejection sampling to generate uniform samples in $C_f$ more samples are generated then accepted. From this figure we conclude that for $alpha\rightarrow1$ the algorithm gets very inefficient where as it converges to a stable effectivity for $alpha>5$ 
 
 
 ## 3
@@ -218,30 +186,7 @@ Hence, we consider the moment generating function of above's sum $M_{X_1+X_2}(t)
 
 ### (b)
 
-The gamma distribution $G(1,1)$ is equivalent to the Exponential distribution $Exp(1)$. To facilate above's result we use induction and for $\alpha>1$ we construct $X = \sum_{i=1}^{\lfloor\alpha\rfloor}Exp(1) + G(\alpha-\lfloor\alpha\rfloor,1)$
-
-
-```{r}
-myGammaUsingExp <- function(alpha, n){
-  # This function returns n samples of the Gamma(alpha,1) distribution
-  # for alpha > 1 using the induction over Exponential distribution
-  
-  # Check sanity of input 
-  stopifnot( alpha > 1 )
-  
-  # Loop for induction
-  sample = rep(0, n)
-  for (i in 1:floor(alpha)){
-    sample = sample + rexp(1, n) #REQUIRES P1(a)
-  }
-  sample = sample + myGammaRejectionSampling(alpha-floor(alpha),n) #REQUIRES P1(a)
-  
-  return(sample)
-  
-}
-
-# PLOT PLOT PLOT
-```
+The gamma distribution $G(1,1)$ is equivalent to the Exponential distribution $Exp(1)$. To facilate above's result for $\alpha\in(1,2)$ we construct $X = Exp(1) + G(\alpha-1,1) \sim G(\alpha,1)$ where the first terms are generated inversion and rejection sampling instead of using the ratio-of-uniform method. 
 
 
 ## 4
@@ -250,7 +195,17 @@ We now consider aforementioned Gamma distribution with generally $\alpha>0$ and 
 
 For the rate we have the property if $X\sim Gamma(\alpha,1)$ then $\frac1\beta X\sim Gamma(\alpha,\beta)$.
 
-```{r}
+```{r, fig.cap="\\label{fig:gamma_general}Histogram for the myGammaGeneral function"}
+
+myGammaDensity <- function(alpha, beta, x){
+  # This function calculate the density of a Gamma(alpha,beta) distr.
+  # at given x
+  
+  f = beta^alpha/gamma(alpha) * x^(alpha-1) *exp(-beta*x)
+  
+  return(f)
+}
+
 myGammaGeneral <- function(alpha, beta, n){
   # This function uses all functions from above 
   # to sample from a Gamma(alpha,beta) distribution
@@ -261,14 +216,66 @@ myGammaGeneral <- function(alpha, beta, n){
   # Three cases:
   # 1. alpha < 1 - myGammaRejectionSampling
   # 2. alpha = 1 - myExponentialInversionSampling
-  # 3. alpha > 1 - myGammaRatioOfUniforms
+  # 3. alpha > 1 - myGammaRatioOfUniformsLogScale
+  if (alpha < 1){
+    samples = myGammaRejectionSampling(alpha, n)
+  } else if (alpha == 1){
+    samples = rexp(n) #REQUIRES A1a!!
+  } else if (alpha > 1){
+    samples = myGammaRatioOfUniformsLogScale(alpha, n)
+    samples = exp(samples$samples)
+  }
   
+  # Scaling with beta
+  samples = 1/beta*samples
   
+  return(samples)
 }
+
+# Testing of myGammaGeneral
+alpha = 1.0
+beta = 0.5
+n = 1000
+
+samples = myGammaGeneral(alpha, beta, n)
+hist(samples, breaks=50, freq=FALSE,
+     xlab="x", main="Histogram for myGammaGeneral")
+curve(myGammaDensity(alpha,beta,x), from=0.0, to=15.0, add=TRUE)
 ```
 
+Figure \ref{fig:gamma_general} shows that the scaling for $\beta$ works as expected and we can use the sampling routines from before to sample from gernal Gamma distributions.
+
+## 5 
+
+We consider $X\sim G(\alpha_1,1)$ and $Y\sim G(\alpha_2,1)$.
+
+### (a)
+
+The joint probability density function of $(X,Y)$ is $f_{(X,Y)}(x,y)=\frac1{\Gamma(\alpha_1)\Gamma(\alpha_2)}x^{\alpha_1-1}y^{\alpha_2-1}\exp(-(x+y))$ using a change of variables $u=\frac{x}{x+y}$ and $v=x+y$ we bring the terms of our interest into the equation as $f_{(U,V)}(u,v)=\frac{\Gamma(\alpha_1+\alpha_2)}{\Gamma(\alpha_1)\Gamma(\alpha_2)}u^{\alpha_1-1}(1-u)^{\alpha_2-1} \cdot \frac1{\Gamma(\alpha_1+\alpha_2}v^{\alpha_1+\alpha_2-1}\exp(-v)$, which clearly factorizes in distinct terms for $u$ and $v$ such that $U$ and $V$ are independent. This yields that $U=\frac{X}{X+Y}\sim Beta(\alpha_1, \alpha_2)$ by the form of the density. (We again see the result from B3(a).)  
+
+### (b)
+
+```{r}
+myBeta <- function(alpha, beta, n){
+  # This function generates n samples from a Beta(alpha, beta) distribtion
+  x = myGammaGeneral(alpha, 1, n)
+  y = myGammaGeneral(beta , 1, n)
+  z = x/(x+y)
+  return(z)
+}
 
 
+# Testing implementation
+alpha = 2.0
+beta = 2.0
+n = 10000
+
+samples = myBeta(alpha, beta, n)
+hist(samples, breaks=50, freq=FALSE,
+     xlab="x", main="Histogram for myGammaGeneral")
+curve(dbeta(x,alpha,beta), from=0.0, to=1.0, add=TRUE)
+
+```
 
 
 # Problem D
