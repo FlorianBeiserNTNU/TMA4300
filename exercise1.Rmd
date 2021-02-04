@@ -1,0 +1,269 @@
+---
+title: "ProblemB"
+output: pdf_document
+---
+
+# Problem B: The gamma distribution
+
+## 1
+
+We consider the gamma distribution with parameters $\alpha\in(0,1)$ and $\beta=1$, i.e. $f(x)=\begin{cases}\frac1{\Gamma(\alpha)}x^{\alpha-1}\exp(-x) & x>0 \\ 0 & \text{else}\end{cases}$. 
+
+### (a)
+
+To ensure $f(x)\leq Cg(x)$, what is required for rejection sampling, we choose the normalizing constant $c=1$ in the definition of $g$ and $C=\Gamma(\alpha)$. (Then $\alpha-1<0$ yields $x^{\alpha-1}<1$ and $\exp(-x)<1$ anyways for positive $x$, such that $f(x)\leq Cg(x)$.)
+
+
+### (b)
+
+
+```{r, fig.cap="\\label{fig:f}Plotting the density of the Gamma distribution for a fix alpha"}
+f <- function(alpha, x){
+  # This function evaluates the density of the gamma distribution
+  # with parameters alpha in (0,1) and beta = 1 at the given x
+  
+  ifelse( x > 0, 1/gamma(alpha)*x^(alpha-1)*exp(-x), 0 )
+  
+}
+
+# Visualising density for fix alpha
+alpha = 0.5
+x = seq(-1,5, length =101)
+y = f(alpha, x)
+
+plot(x,y, type="l", xlab="x", ylab="p(x)", 
+     main=paste("Density of Gamma distribution with alpha = ", toString(alpha), " and beta = 1"))
+```
+
+Figure \ref{fig:f} show the target density $f$ for $\alpha=0.5$. The proposal density $g$ is defined in the previous problem solution and not visualised here.
+
+
+
+```{r}
+
+myGammaRejectionSampling <- function(alpha, n){
+  # This function generates n samples from the gamma distribution
+  # with parameter alpha in (0,1) and beta = 1 
+  # using rejection sampling the a proposal given in Problem A.
+  
+  # Check sanity of input 
+  stopifnot( alpha > 0 && alpha < 1 )
+  
+  # Bookkeeping
+  acceptance = rep(FALSE, n)
+  count = 0
+  
+  # Draw from proposal distribution
+  proposal = rep(0,n)
+  
+  # Trial implementation in for-loop
+  for (i in 1:n){
+    while (acceptance(i)==FALSE){
+      proposal(i) = gInversionSampling(alpha, 1) #REQUIRES A2b
+      acceptance_rate = f(alpha, proposal(i))/g(alpha, proposal(i)) #REQUIRES A2b
+      acception = runif(1)
+      count = count + 1
+      if (acception <= acceptance_rate){
+        target(i) = proposal(i)
+        acceptance(i) = TRUE
+      }
+    }#end one particle
+  }#end all particles
+    
+}
+
+
+```
+
+
+## 2 
+
+We now consider aforementioned Gamma distribution with $\alpha>1$ and still $\beta=1$. The domain $C_f$ is defined as in the lecture.
+
+
+#### (a)
+
+The domain $C_f$ is contained in the rectangle $[0,a]\times[b_-,b_+] = [0, \alpha-1]\times[0,\alpha+1]$ by the use of the given formulas.
+
+
+### (b)
+
+For reference, we start the implementation with the original scale!
+
+```{r}
+fCore <- function(alpha, x){
+  # This function evaluates the density of the gamma distribution
+  # with parameters alpha in (0,1) and beta = 1 at the given x
+  
+  ifelse( x > 0, x^(alpha-1)*exp(-x), 0 )
+  
+}
+
+myGammaRatioOfUniforms <- function(alpha, n){
+  # This function generates n samples from the gamma distribution
+  # with parameter alpha in (0,1) and beta = 1 
+  # using the ratio of uniforms method
+  
+  # Check sanity of input 
+  stopifnot( alpha > 1 )
+  
+  # Rectangular domain for uniform sampling
+  x1_lower = 0
+  x1_upper = sqrt(alpha - 1)
+  x2_lower = 0
+  x2_upper = sqrt(alpha + 1) 
+  
+  # Bookkeeping
+  num_accepted_samples = 0
+  num_total_samples = 0
+  
+  # Trial implementation in for-loop
+  target = rep(0,n)
+  while (num_accepted_samples < n ){
+    x1 = runif(1, x1_lower, x1_upper)
+    x2 = runif(1, x2_lower, x2_upper)
+    if (x1 <= sqrt(fCore(alpha,x2/x1))){
+      num_accepted_samples = num_accepted_samples + 1
+      target[num_accepted_samples] = x2/x1
+    }
+    num_total_samples = num_total_samples + 1 
+  }
+  return(target)
+}
+
+alpha = 2.0
+sample_size = 10000
+
+samples = myGammaRatioOfUniforms(alpha,sample_size)
+hist(samples, freq=FALSE, xlim=c(0,10),breaks=50)
+curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
+
+```
+
+############################################################
+############################################################
+############################################################
+
+For the log scale calculations we employ a transformation $?=?$. 
+
+--> What transformation is meant by "log scale". Our reference books also just mention but do not explain it....
+
+```{r}
+fCoreLogScale <- function(alpha, x){
+  # This function evaluates the density of the gamma distribution
+  # with parameters alpha in (0,1) and beta = 1 at the given x
+  
+  # Transformation y = log(x+1)
+  # Returning f(y)
+  
+  ifelse( x > 0, log(x+1)^(alpha-1)*exp(-log(x+1)), 0 )
+  
+}
+
+myGammaRatioOfUniformsLogScale <- function(alpha, n){
+  # This function generates n samples from the gamma distribution
+  # with parameter alpha in (0,1) and beta = 1 
+  # using the ratio of uniforms method
+  
+  # Check sanity of input 
+  stopifnot( alpha > 1 )
+  
+  # Rectangular domain for uniform sampling
+  x1_lower = 0
+  x1_upper = alpha - 1
+  x2_lower = 0
+  x2_upper = alpha + 1 
+  
+  # Bookkeeping
+  num_accepted_samples = 0
+  num_total_samples = 0
+  
+  # Trial implementation in for-loop
+  target = rep(0,n)
+  while (num_accepted_samples < n ){
+    x1 = log(runif(1, x1_lower, x1_upper)+1)
+    x2 = log(runif(1, x2_lower, x2_upper)+1)
+    if (x1 <= sqrt(fCoreLogScale(alpha,x2/x1))){
+      num_accepted_samples = num_accepted_samples + 1
+      target[num_accepted_samples] = x2/x1
+    }
+    num_total_samples = num_total_samples + 1 
+  }
+  return(target)
+}
+
+alpha = 2.0
+sample_size=100000
+
+samples = myGammaRatioOfUniformsLogScale(alpha,sample_size)
+hist(exp(samples)-1, breaks=50, freq=FALSE)
+curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
+
+```
+
+
+## 3
+
+We now consider aforementioned Gamma distribution with generally $\alpha>0$ and still $\beta=1$. 
+
+### (a)
+
+Let $X_1\sim G(\alpha_1,1)$ and $X_2\sim G(\alpha_2,1)$ independent random variables. 
+
+Remember, that the moment generating function $M_x(t)$ for a $G(\alpha,1)$ distributed random variable looks as $(1-t)^{-\alpha}$ and that a moment generating function uniquely determines the law of a random variable.
+
+Hence, we consider the moment generating function of above's sum: ........................
+
+
+# Problem D
+
+```{r}
+y1 = 125
+y2 = 18
+y3 = 20
+y4 = 34
+
+t = seq(0,1,length=1001)
+
+posterior <- function(t){
+  # Posterior density of the Rao experiment
+  
+  f = (2+t)^y1*(1-t)^(y2+y3)*t^y4
+  return(f)
+}
+
+c = 2.0e+29
+
+posteriorRejectionSampling <- function(n){
+  # This function generates n samples from the Rao posterior 
+  
+  # Bookkeeping
+  num_accepted_samples = 0
+  num_total_samples = 0
+  
+  # Trial implementation in for-loop
+  target = c(0,n)
+  while (num_accepted_samples < n ){
+    x = runif(1)
+    acceptance_rate = f(alpha, proposal(i))/g(alpha, proposal(i))
+    acception = runif(1)
+    count = count + 1
+    if (acception <= acceptance_rate){
+      target(i) = proposal(i)
+      acceptance(i) = TRUE
+    }
+  }#end one particle
+    
+}
+plot(t,posterior(t))
+
+```
+
+
+
+
+
+
+
+
+
