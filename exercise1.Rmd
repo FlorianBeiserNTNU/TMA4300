@@ -288,10 +288,10 @@ y4 = 34
 
 t = seq(0,1,length=1001)
 
-posterior <- function(t){
+posteriorLogScale <- function(t){
   # Posterior density of the Rao experiment
   
-  f = (2+t)^y1*(1-t)^(y2+y3)*t^y4
+  f = y1*log(2+t)+ (y2+y3)*log(1-t)+y4*log(t)
   return(f)
 }
 
