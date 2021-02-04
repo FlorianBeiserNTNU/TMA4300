@@ -302,23 +302,21 @@ posteriorRejectionSampling <- function(n){
   
   # Bookkeeping
   num_accepted_samples = 0
-  num_total_samples = 0
   
   # Trial implementation in for-loop
   target = c(0,n)
+  c = c
   while (num_accepted_samples < n ){
     x = runif(1)
-    acceptance_rate = f(alpha, proposal(i))/g(alpha, proposal(i))
-    acception = runif(1)
-    count = count + 1
-    if (acception <= acceptance_rate){
-      target(i) = proposal(i)
-      acceptance(i) = TRUE
+    acceptance_rate = 1/c*posterior(x)/1
+    u = runif(1)
+    if (u <= acceptance_rate){
+      num_accepted_samples = num_accepted_samples + 1 
+      target[i] = x
     }
-  }#end one particle
+  }
     
 }
-plot(t,posterior(t))
 
 ```
 
