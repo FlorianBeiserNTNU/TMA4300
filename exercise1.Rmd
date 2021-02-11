@@ -1,7 +1,174 @@
 ---
 title: "ProblemB"
+author: "Florian Beiser, Martin Lie"¨
+date: "12.02.2021"
 output: pdf_document
 ---
+
+
+# Problem A: Stochastic Simulation by the Probability Integral Transform and Bivariate Techniques
+
+## 1 
+
+For the exponential distribution $Exp(\lambda)$ with density $f(x)=\lambda \exp(-\lambda x)$, where $\lambda$ is the so-called rate parameter, we use the inverse cumulative distribution function to sample from $f$. The cummulative is $F(x) = 1-\exp(-\lambda x)$ and its inverse $F^{-1}(u)= -\frac1\lambda \log(u)$.
+
+```{r, fig.cap="\\label{fig:myexp}Histograms of Exp(lambda) distributed samples by inversion sampling compared to the theoretical density"}
+myExp <- function(lambda, n){
+  # This function generates n indep samples 
+  # distributed according Exp(lambda)
+  u = runif(n)
+  samples = -1/lambda * log(u)
+  return(samples)
+}
+
+# Testing 
+lambda = 1.0
+sample_size = 10000
+samples = myExp(lambda, sample_size)
+hist(samples, breaks = 50, freq = F,
+     xlab="x", main="Histogram for Exp(lambda) samples")
+curve(dexp(x, rate=lambda), add=TRUE)
+```
+
+Figure \ref{fig:myexp} shows the empirical and theoretical distribution for our implementation of the exponential distribution with rate parameter $\lambda=1.0$.
+
+
+## 2 
+
+### (a)
+
+The cummulative distribution function for $g$ is $G(x) = \begin{cases} 0 & x\leq0 \\ \frac{c}{\alpha}x^\alpha & 0<x<1 \\ \frac{c}{\alpha}+c\exp(-1) - c\exp(x) & 1\leq x \end{cases}$. Its inverse is given as $G^{-1}(u)=\begin{cases}(\frac{\alpha}{c}u)^\frac1\alpha & u \leq\frac{c}{\alpha} \\ 1 - \log((-y+c\exp(-1)/c) & u > \frac{c}{\alpha} \end{cases}$. This $g$ is unnormalised we cannot sample $u$ from $(0,1)$ but have to adapt the interval. Note that $\int g dx = c/alpha+c*exp(-1)$ which is the normalising constant for plotting.
+
+
+### (b)
+
+```{r}
+g <- function(c, alpha, x){
+  # This function return the unnormalized density g
+  g = ifelse( x<0, 0, ifelse(x<1, c*x^(alpha-1), c*exp(-x)) )
+  return(g)
+}
+
+g <- function(c, alpha, x){
+  # This function return the unnormalized density g
+  g = ifelse( x<0, 0, ifelse(x<1, c*x^(alpha-1), c*exp(-x)) )
+  return(g)
+}
+
+
+gSamples <- function(c, alpha, n){
+  # This function returns samples from g
+  u = runif(n, min=0, max=(c/alpha+c*exp(-1)))
+  G = ifelse( u<c/alpha, (alpha/c*u)^(1/alpha), -log((c*exp(-1)+ c/alpha - u)/c) )
+  return(G)
+}
+
+# Testing
+c = 2.0
+alpha = 2.0
+sample_size = 1000
+
+samples = gSamples(c, alpha, n)
+hist(samples, breaks=50, freq=F, xlim=c(0,3))
+curve(g(c,alpha,x)/(c/alpha+c*exp(-1)), add=T, to=3)
+
+```
+
+
+## 4
+ 
+```{r}
+BoxMuller <- function(n){
+  # This function uses the Box Muller algorithm
+  # to generate n N(0,1) samples
+  
+  m = ceiling(n/2)
+  x1 = runif(m, min=0, max=2*pi)
+  x2 = myExp(0.5, m)
+  
+  y1 = sqrt(x2)*cos(x1)
+  y2 = sqrt(x2)*sin(x1)
+  
+  if ((n%%2) == 0){
+    return(c(y1,y2))
+  }
+  else
+    return(c(y1,head(y2,-1)))
+}
+
+# Testing 
+sample_size = 10001
+
+samples = BoxMuller(sample_size)
+hist(samples, breaks=50, freq=F, xlab="x")
+curve(dnorm(x), add=T)
+```
+
+
+## 5
+
+```{r}
+myMultivariateNormal <- function(d, mu, Sigma, n){
+  # This function generates n samples 
+  # that are N_d(mu, Sigma) distributed 
+  
+  # Sanity Check of Input
+  stopifnot( d==length(mu) && d==dim(Sigma)[1] && d==dim(Sigma)[2] )
+  
+  # N(0,1) samples to N_d(0,1) samples
+  samples = matrix(BoxMuller(d*n), nrow=d)
+  
+  # N_d(0,Sigma)
+  samples = t(chol(Sigma)) %*% samples
+  
+  # N_d(mu,Sigma)
+  samples = samples + mu
+  
+  return(samples)
+}
+
+# Testing 
+d = 3
+mu = c(1,2,3)
+Sigma = matrix(c(1,.8,.8,.8,1,.8,.8,.8,1), ncol=3)
+sample_size = 10000
+
+samples = myMultivariateNormal(d, mu, Sigma, sample_size)
+
+# Validation (mean)
+sample_mean = 1/sample_size * rowSums(samples)
+
+print_mu = ""
+for (i in 1:d)
+  print_mu = paste(print_mu, mu[i])
+print(paste("The analytical mean is:", print_mu))
+print_sample_mean = ""
+for (i in 1:d)
+  print_sample_mean = paste(print_sample_mean, sample_mean[i])
+print(paste("The empirical mean is: ", print_sample_mean))
+
+# Validation (cov)
+sample_cov = 1/(sample_size-1)*(samples-sample_mean)%*%t(samples-sample_mean)
+
+print("The analytical covariance is:")
+for (i in 1:d){
+  print_cov=""
+  for (j in 1:d)
+    print_cov = paste(print_cov, Sigma[i,j])
+  print(print_cov)
+}
+print("The empirical covariance is:")
+for (i in 1:d){
+  print_cov=""
+  for (j in 1:d)
+    print_cov = paste(print_cov, sample_cov[i,j])
+  print(print_cov)
+}
+
+```
+
+We see a great accordance of empirical and analytical quantities! 
+
 
 # Problem B: The gamma distribution
 
