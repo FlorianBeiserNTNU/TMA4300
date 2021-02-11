@@ -49,13 +49,6 @@ g <- function(c, alpha, x){
   return(g)
 }
 
-g <- function(c, alpha, x){
-  # This function return the unnormalized density g
-  g = ifelse( x<0, 0, ifelse(x<1, c*x^(alpha-1), c*exp(-x)) )
-  return(g)
-}
-
-
 gSamples <- function(c, alpha, n){
   # This function returns samples from g
   u = runif(n, min=0, max=(c/alpha+c*exp(-1)))
@@ -217,29 +210,30 @@ myGammaRejectionSampling <- function(alpha, n){
   stopifnot( alpha > 0 && alpha < 1 )
   
   # Bookkeeping
-  acceptance = rep(FALSE, n)
-  count = 0
+  num_accepted_samples = 0
+  target = rep(0,n)
   
-  # Draw from proposal distribution
-  proposal = rep(0,n)
-  
+  C = gamma(alpha)
   # Trial implementation in for-loop
-  for (i in 1:n){
-    while (acceptance(i)==FALSE){
-      proposal(i) = gInversionSampling(alpha, 1) #REQUIRES A2b
-      acceptance_rate = f(alpha, proposal(i))/g(alpha, proposal(i)) #REQUIRES A2b
-      acception = runif(1)
-      count = count + 1
-      if (acception <= acceptance_rate){
-        target(i) = proposal(i)
-        acceptance(i) = TRUE
-      }
-    }#end one particle
-  }#end all particles
-    
+  while (num_accepted_samples<n){
+    proposal = gSamples(1, alpha, 1) 
+    acceptance_rate = 1/C*f(alpha, proposal)/g(1, alpha, proposal)
+    acception = runif(1)
+    if (acception <= acceptance_rate){
+      num_accepted_samples = num_accepted_samples + 1
+      target[num_accepted_samples] = proposal
+    }
+  }
+  return(target)
 }
 
+# Testing 
+alpha = 0.5
+sample_size = 10000
 
+samples = myGammaRejectionSampling(alpha, sample_size)
+hist(samples, breaks=50, freq=F)
+curve(f(alpha,x), add=T)
 ```
 
 
@@ -387,7 +381,7 @@ myGammaGeneral <- function(alpha, beta, n){
   if (alpha < 1){
     samples = myGammaRejectionSampling(alpha, n)
   } else if (alpha == 1){
-    samples = rexp(n) #REQUIRES A1a!!
+    samples = myExp(1.0, n)
   } else if (alpha > 1){
     samples = myGammaRatioOfUniformsLogScale(alpha, n)
     samples = exp(samples$samples)
