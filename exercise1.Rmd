@@ -1,6 +1,6 @@
 ---
 title: "ProblemB"
-author: "Florian Beiser, Martin Lie"¨
+author: "Florian Beiser, Martin Lie"
 date: "12.02.2021"
 output: pdf_document
 ---
@@ -61,7 +61,7 @@ c = 2.0
 alpha = 2.0
 sample_size = 1000
 
-samples = gSamples(c, alpha, n)
+samples = gSamples(c, alpha, sample_size)
 hist(samples, breaks=50, freq=F, xlim=c(0,3))
 curve(g(c,alpha,x)/(c/alpha+c*exp(-1)), add=T, to=3)
 
@@ -161,6 +161,29 @@ for (i in 1:d){
 ```
 
 We see a great accordance of empirical and analytical quantities! 
+
+```{r}
+# For the slides
+d = 3
+mu = c(0,0,0)
+Sigma = matrix(c(1,0,0,0,1,0,0,0,1), ncol=3)
+
+ns = c(1000,5000,10000,25000,50000,75000,100000,200000)
+err_means = rep(0, length(ns))
+err_covs  = rep(0, length(ns))
+for (i in 1:length(ns)){
+  samples = myMultivariateNormal(d, mu, Sigma, ns[i])
+  mean = 1/ns[i] * rowSums(samples)
+  err_means[i] = norm(mean-mu, type="2")
+  cov = 1/(ns[i]-1)*(samples-mean)%*%t(samples-mean)
+  err_covs[i] = norm(cov-Sigma, type = "2")
+}
+
+plot(ns, err_means, type="l", xlab="n", ylab="error in mean vector")
+
+plot(ns, err_covs, type="l", xlab="n", ylab="error in covariance matrix")
+
+```
 
 
 # Problem B: The gamma distribution
@@ -275,10 +298,12 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
   stopifnot( alpha > 1 )
   
   # Rectangular domain for uniform sampling
+  # (For stability size slightly increased
+  # but no influence on distribution since rejection mechanism)
   x1_lower = 0
-  x1_upper = 1/2*(alpha - 1)
+  x1_upper = 1/2*(alpha - 1) +0.1
   x2_lower = 0
-  x2_upper = 1/2*(alpha + 1)
+  x2_upper = 1/2*(alpha + 1) +0.1
   
   # Bookkeeping
   num_accepted_samples = 0
@@ -299,12 +324,12 @@ myGammaRatioOfUniformsLogScale <- function(alpha, n){
 }
 
 # Visualisation of samples for alpha = 2 
-# NB! Small sample size leading to bad approximations
 alpha = 2.0
-sample_size=1000
+sample_size=10000
 
 samples = myGammaRatioOfUniformsLogScale(alpha,sample_size)
-hist(exp(samples$samples), breaks=50, freq=FALSE)
+hist(exp(samples$samples), breaks=50, freq=FALSE, 
+     xlab="x", main="Histogram for the Gamma distributed samples")
 curve(f(alpha,x), from=0.0, to=10.0, add=TRUE)
 ```
 
@@ -596,7 +621,7 @@ We observe that the practical implementation requires significantly more random 
 
 For a prior $f(\theta)$, we get the posterior distribution as $f(\theta|y)\propto f(y|\theta)f(\theta)$. Above, we had $f(\theta)=f_{1,1}(\theta)$ and now we want to consider $f(\theta)=f_{1,5}(\theta)$ where $f_{\alpha,\beta}$ denotes the density of a $Beta(\alpha,\beta)$ distribution. 
 
-The classical trick of importance sampling $\int{ \theta f(y|\theta)f_{1,5}(\theta) d \theta} = \int{ \theta f(y|\theta)f_{1,1}(\theta) \frac{f(y|\theta)f_{1,5}(\theta)}{f(y|\theta)f_{1,1}(\theta)} = \int{ \theta f(y|\theta)f_{1,1}(\theta) \frac{f_{1,5}(\theta)}{f_{1,1}(\theta)}$ allows to reuse the samples from before, when we introduce the weights $w_i=\frac{f_{1,5}(\theta_i)}{f_{1,1}(\theta_i)} = f_{1,5}(\theta_i)$ into our Monte Carlo calculations: $E(\theta|y)=\frac1N\sum{\theta_iw_i}$ where the $\theta_i$ are distributed according to the posterior given the $f_{1,1}$ prior. 
+The classical trick of importance sampling $\int{ \theta f(y|\theta)f_{1,5}(\theta) d \theta} = \int{ \theta f(y|\theta) f_{1,1}(\theta) \frac{ f(y|\theta)f_{1,5}(\theta) }{ f(y|\theta)f_{1,1}(\theta)} d\theta} =\int{ \theta f(y|\theta)f_{1,1}(\theta) \frac{f_{1,5}(\theta)}{f_{1,1}(\theta)}d\theta}$ allows to reuse the samples from before, when we introduce the weights $w_i=\frac{f_{1,5}(\theta_i)}{f_{1,1}(\theta_i)} = f_{1,5}(\theta_i)$ into our Monte Carlo calculations: $E(\theta|y)=\frac1N\sum{\theta_iw_i}$ where the $\theta_i$ are distributed according to the posterior given the $f_{1,1}$ prior. 
 
 ```{r}
 # Calculate weights
