@@ -11,4 +11,64 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Problem A: The coal-mining disaster
 
-# Problem B: 
+# Problem B: INLA for Gaussian data 
+
+In this exercise we are going to consider the problem of smoothing for time series. 
+
+The dataset `Gaussiandata.txt` is given. We read and visualise it.
+
+```{r}
+# Reading file and convert 
+GaussianData = as.double(as.matrix(read.table("Gaussiandata.txt")))
+
+# Visualise data points on a line
+plot(seq(length(GaussianData)),GaussianData,
+     main="Data points from 'Gaussiandata.txt'",
+     xlab="t", ylab="observation")
+```
+
+
+## The model
+
+It is assumed that the data generation is described by a Gaussian likelihood:
+$$1.\quad y_t|x_t\sim\mathcal{N}(x_t,1), \quad t=1,\dots,T$$
+wherefrom it immediately follows that $\mathrm{y}|\mathrm{x}\sim\Pi\pi(y_t|x_t)$ which means that $\mathrm{y}$ is conditionally independent given $\mathrm{x}$. Note, taht here $y_t$ does not depend explicitly on $\theta$ but via $\mathrm{x}$ it still does. 
+The latent field $\mathrm{x}$ which is modelled via a second order random walk with parameter $\theta$ such that
+$$2.\quad  \pi(\mathrm{x}|\theta) \propto \mathcal{N}(\mathrm{0},\mathrm{Q}(\theta)^{-1})$$
+is obviously a GMRF where we will go into detail of the precision matrix a bit further below.
+Lastly, a Gamma prior is given for the hyperparameter $\theta$, i.e.
+$$3. \quad \theta \sim Gamma(1,1).$$
+
+## 1.
+
+Therewith, the model shows the clear structure of a latent Gaussian model, since the latent field is Gaussian distributed. Moreover, the precision matrix of the GMRF is sparse, which makes the model suitable for an INLA approach.
+
+### About the precision matrix
+
+In this paragraph, we show the form of the precision matrix which is derived from the RW2 ansatz. The part of interest in the exponent in the exponential, wherefore we only present those calculations here. In the second step those terms that allow to factor out $x_t$ are collected and mixed terms are split symmetrically.
+$$
+\begin{align*}
+    \sum_{t=3}^T (x_t - 2x_{t-1} + x_{t-2})^2 & = \sum_{t=3}^T x_t^2 - 4x_t x_{t-1} + 2x_t x_{t-2} + 4x_{t-1}^2 - 4x_{t-1}x_{t-2} +x_{t-2} ^2\\
+    &= x_1(x_1 - 2x_2 +x_3) + x_2(-2x_1 + 5x_2 -4x_3 +1 x_4) + \sum_{t=3}^{T-2} x_t(x_{t-2} -4 x_{t-1} + 6 x_t - 4 x_{t+1} + x_{t+2}) + \cdots \\
+    &= \mathrm{x}^\top \mathrm{Q} \mathrm{x}
+\end{align*}
+$$
+
+where 
+$$
+\mathrm{Q} = 
+\begin{bmatrix} 
+1 &-2 & 1 \\
+-2 & 5 & -4 & 1\\
+1 & -4 & 6 & -4 & 1 \\
+& \ddots & \ddots & \ddots & \ddots & \ddots\\
+& & 1 & -4 & 6 &-4 & 1 \\
+& & & 1 & -4 & 5 &-2 \\
+& & & & 1 & -2 & 1 
+\end{bmatrix}.
+$$
+This precision matrix is obviously sparse with bandwidth = 2. 
+
+## 2 
+
+
