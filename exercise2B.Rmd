@@ -17,12 +17,12 @@ In this exercise we are going to consider the problem of smoothing for time seri
 
 The dataset `Gaussiandata.txt` is given. We read and visualise it.
 
-```{r}
-# Reading file and convert 
-GaussianData = as.double(as.matrix(read.table("Gaussiandata.txt")))
+```{r B0}
+# Reading file and convert data type
+y = as.double(as.matrix(read.table("Gaussiandata.txt")))
 
 # Visualise data points on a line
-plot(seq(length(GaussianData)),GaussianData,
+plot(seq(length(y)),y,
      main="Data points from 'Gaussiandata.txt'",
      xlab="t", ylab="observation")
 ```
@@ -67,8 +67,178 @@ $$
 & & & & 1 & -2 & 1 
 \end{bmatrix}.
 $$
-This precision matrix is obviously sparse with bandwidth = 2. 
+This precision matrix is obviously sparse with bandwidth = 2. For later convenience, we introduce $\mathrm{Q}(\theta)=\theta\mathrm{Q}$. 
 
-## 2 
+```{r B1}
+# Construct the precision matrix
+T = length(y)
+ 
+diags = list(rep(6,T), rep(-4,T-1), rep(1,T-2))
+Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diags, symm=T))
+Q[1,1] = Q[T,T] = 1
+Q[1,2] = Q[2,1] = Q[T,T-1] = Q[T-1,T] = -2
+Q[2,2] = Q[T-1,T-1] = 5
+
+print(Q)
+```
+
+## 2.
+
+For the aforementioned model, the new interest lies in the joint posterior $\pi(x,\theta|y)$. By Bayes' formula it can be represented by
+$$
+\pi(x,\theta|y) \propto \pi(y|x,\theta)\pi(x|\theta)\pi(\theta) = \pi(y|x)\pi(x|\theta)\pi(\theta)
+$$
+where the likelihood $\pi(y|x,\theta)$, the latent Gaussian field $\pi(x|\theta)$ and the hyper-prior $\pi(\theta)$ are given from the model, such that we obtain
+$$
+\pi(x,\theta|y) \propto \exp(-\frac12 (\mathrm{y}-\mathrm{x})^\top(\mathrm{y}-\mathrm{x})) \theta^{\frac{T-2}2}\exp(-\frac12 \mathrm{x}^\top\mathrm{Q(\theta)}\mathrm{x})\exp(-\theta)
+$$
+which is not in closed form such that direct sampling possible would be possible. This exercise employs MCMC to generate samples from the posterior, in the particular case a blocked Gibbs sampler is used. The proposal steps are split into 
+
+-   new $\theta$ (single value) proposed from its full-conditional $\pi(\theta|\mathrm{x},\mathrm{y}$
+-   new $\mathrm{x}$ (vector) proposed from its full-conditional $\pi(\mathrm{x}|\theta,\mathrm{y})$.
+
+The full-conditionals are derived from the joint posterior be omitting factors that do not depend on the marginal variable and look like:
+
+$$
+\bullet\quad \pi(\theta|\mathrm{x},\mathrm{y}) \propto \theta^{\frac{T-2}2}\exp(-(\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)\theta) \propto Gamma(\frac{T}2,\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)\\
+\bullet\quad \pi(\mathrm{x}|\theta,\mathrm{y}) \propto \exp(-\frac12 (\mathrm{x}\mathrm{Q}(\theta)\mathrm{x}  -2\mathrm{y}^\top\mathrm{x} ) \propto \mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})
+$$
+where the latter is the canoical form a Gaussian distribution. However, to be able to sample from it we have to find the covariance matrix $\mathrm{\Sigma}$ and mean vector $\mathrm{\mu}$, which are used in the form $\exp(-\frac12 (\mathrm{x}-\mathrm{\mu})^\top \mathrm{C}^{-1} (\mathrm{x}-\mathrm{\mu}))$. Note that we do not care about multiplicative constants that are independent of $x$. Then we find by expending the covariance-formulation and comparing to above's canoncical coefficients:
+
+- $\mathrm{\Sigma} = (\mathrm{Q}(\theta)+\mathrm{I})^{-1}$
+- $\mathrm{\mu} = \mathrm{\Sigma}\mathrm{y}$
+
+The Gibbs sampler iteratively updates $\theta$ and $\mathrm{x}$ from their respective proposal densities - in particular, the acceptance probability is always 1 for Gibbs.
+
+```{r B2}
+# loads
+library(mvtnorm)
+
+# Input parameters:
+T = length(y)
+x = rep(0, T) # initial x
+theta = 0.0 # initial theta
+N = 11000 # steps in markov chain
+
+# Bookkeping
+X = matrix(0, nrow=N, ncol=length(x))
+Theta = matrix(0, nrow=N, ncol=1)
+
+#----------------------
+# MCMC loop
+for (i in 1:N){
+  # Update theta
+  theta = rgamma(1, shape=T/2, rate=0.5*t(x)%*%Q%*%x+1)
+  Theta[i] = theta
+  # Update x
+  Sigma = solve(theta*Q+diag(T))
+  mu = Sigma%*%y
+  x = c(rmvnorm(1,mean=mu, sigma=Sigma))
+  X[i,] = x
+}
+
+#----------------------
+# Inference
+burnin = 1000
+
+# hyperparameter theta
+hist(Theta[-c(1:burnin)], freq=F, breaks=50,
+     main="Gibbs-MCMC posterior marginal for theta",
+     xlab="theta")
+
+# latent field x
+Xmeans = colMeans(X)
+Xquants = apply(X, 2, quantile, probs=c(0.025,0.975))
+
+Ts = seq(T)
+plot(Ts,y,
+     main="Gibbs-MCMC inference for the latent field",
+     xlab="t", ylab="value")
+lines(Ts, Xmeans)
+lines(Ts, Xquants[1,], lty=2)
+lines(Ts, Xquants[2,], lty=2)
+```
+The histogram shows the posterior marginal for $\theta$ which is obtained by Gibbs MCMC. The plot shows again the observation data together with the linearly interpolated posterior means (solid line) and the 0.025 as well as 0.975 quantile (dashed line) from the Gibbs MCMC. We use 10.000 MCMC samples after a burn-in period of 1.000 steps.
 
 
+## 3. 
+
+As second approach for inference with the posterior, the exercise constrasts the MCMC results with the INLA method. The method focuses on the posterior marginals (which we actually analyzed exclusively in the previous subsection). The INLA scheme relies on numerical approximation of the posterior marginals using the identity
+$$
+\pi(\theta|\mathrm{x}) \propto \frac{\pi(\mathrm{y}|\mathrm{x},\theta)\pi(\mathrm{x}|\theta)\pi(\theta)}{\pi(\mathrm{x}|\theta,\mathrm{y})}
+$$
+where it is noteworthy that all distributions are known from before:
+
+- $\pi(\mathrm{y}|\mathrm{x},\theta)=\pi(\mathrm{y}|\mathrm{x})\sim\mathcal{N}(\mathrm{x},\mathrm{I})$
+- $\pi(\mathrm{x}|\theta) \sim \mathcal{N}(0,\mathrm{Q}(\theta))$
+- $\pi(\theta) \sim Gamma(1,1)$
+- $\pi(\mathrm{x}|\theta,\mathrm{y})\sim\mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})$
+
+The approximation is build using a $\theta$-grid in the interval $[0,6]$, moreover this is valid for all $x$ wherefore we choose $\mathrm{x}=0$ for simplicity.
+
+```{r B3}
+# theta grid 
+thetas = seq(from=0, to=6, by=0.25)
+
+x = rep(0,T)
+
+numerator1 = dgamma(thetas, shape=1, rate=1)
+
+numerator2 = rep(0,length(thetas))
+for (j in 2:length(thetas)){
+  numerator2[j] = dmvnorm(x, sigma=1/thetas[j]*solve(Q))
+}
+
+denominator = rep(0, length(thetas))
+for (j in 1:length(thetas)){
+  Sigma = solve(thetas[j]*Q+diag(T))
+  mu = Sigma%*%y
+  denominator[j] = dmvnorm(x,mean=mu, sigma=Sigma)
+}
+
+```
+
+
+## 5.
+
+```{r B5}
+library(INLA)
+data = list(y=y, t=seq(length(y)) )
+
+# Define model
+formula = y ~  f( t, 
+                 model = "rw2", 
+                 hyper = list(theta=list(prior="loggamma", param=c(1,1))),
+                 cyclic=F,
+                 constr=T
+                 )
+
+# Calculate results
+result = inla(formula = formula,
+              data = data,
+              family = "gaussian",
+              control.predictor = list(compute = TRUE, link = 1)
+              )
+
+#--------------------
+# Inference
+
+# marginal hyperparam
+INLAtheta = result$marginals.hyperpar[[2]]
+
+plot(inla.smarginal(INLAtheta), 
+     main="INLA approximation for hyper marginal",
+     xlab="theta", ylab="density",
+     xlim=c(0,6))
+
+# marginal latent field
+INLAx = result$summary.linear.predictor
+
+plot(Ts,y,
+     main="INLA inference for the latent field",
+     xlab="t", ylab="value")
+lines(Ts, INLAx$mean)
+lines(Ts, INLAx$`0.025quant`, lty=2)
+lines(Ts, INLAx$`0.975quant`, lty=2)
+
+```
