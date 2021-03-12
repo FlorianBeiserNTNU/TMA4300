@@ -72,7 +72,7 @@ This precision matrix is obviously sparse with bandwidth = 2. For later convenie
 ```{r B1}
 # Construct the precision matrix
 T = length(y)
- 
+
 diags = list(rep(6,T), rep(-4,T-1), rep(1,T-2))
 Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diags, symm=T))
 Q[1,1] = Q[T,T] = 1
@@ -178,24 +178,37 @@ The approximation is build using a $\theta$-grid in the interval $[0,6]$, moreov
 
 ```{r B3}
 # theta grid 
-thetas = seq(from=0, to=6, by=0.25)
+grid_reso = 0.25
+thetas = seq(from=0, to=6, by=grid_reso)
 
 x = rep(0,T)
 
-numerator1 = dgamma(thetas, shape=1, rate=1)
+# pi(theta)
+lnumerator1 = -thetas 
 
-numerator2 = rep(0,length(thetas))
-for (j in 2:length(thetas)){
-  numerator2[j] = dmvnorm(x, sigma=1/thetas[j]*solve(Q))
-}
+# pi(x|theta)
+lnumerator2 = ((T-2)/2)*log(thetas) 
 
+# pi(y|x)
+lnumerator3 = rep(-1/2*t(y)%*%y, length(thetas))
+
+# pi(x|theta, y)
 denominator = rep(0, length(thetas))
 for (j in 1:length(thetas)){
   Sigma = solve(thetas[j]*Q+diag(T))
   mu = Sigma%*%y
   denominator[j] = dmvnorm(x,mean=mu, sigma=Sigma)
 }
+ldenominator = log(denominator)
 
+lpost_marginal_theta = lnumerator1 + lnumerator2 + lnumerator3 - ldenominator
+post_marginal_theta = exp(lpost_marginal_theta)
+post_marginal_theta = post_marginal_theta/(sum(post_marginal_theta)*grid_reso)
+
+plot(thetas, post_marginal_theta,
+     main="INLA inference for hyper posterior",
+     xlab="theta", ylab="density",
+     type="l")
 ```
 
 
