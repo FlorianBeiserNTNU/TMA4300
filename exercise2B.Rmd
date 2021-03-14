@@ -20,9 +20,10 @@ The dataset `Gaussiandata.txt` is given. We read and visualise it.
 ```{r B0}
 # Reading file and convert data type
 y = as.double(as.matrix(read.table("Gaussiandata.txt")))
+T = length(y)
 
 # Visualise data points on a line
-plot(seq(length(y)),y,
+plot(seq(T),y,
      main="Data points from 'Gaussiandata.txt'",
      xlab="t", ylab="observation")
 ```
@@ -70,9 +71,10 @@ $$
 This precision matrix is obviously sparse with bandwidth = 2. For later convenience, we introduce $\mathrm{Q}(\theta)=\theta\mathrm{Q}$. 
 
 ```{r B1}
-# Construct the precision matrix
-T = length(y)
+# loads
+library(Matrix)
 
+# Construct the precision matrix
 diags = list(rep(6,T), rep(-4,T-1), rep(1,T-2))
 Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diags, symm=T))
 Q[1,1] = Q[T,T] = 1
@@ -147,8 +149,8 @@ hist(Theta[-c(1:burnin)], freq=F, breaks=50,
      xlab="theta")
 
 # latent field x
-Xmeans = colMeans(X)
-Xquants = apply(X, 2, quantile, probs=c(0.025,0.975))
+Xmeans = colMeans(X[-c(1:burnin),])
+Xquants = apply(X[-c(1:burnin),], 2, quantile, probs=c(0.025,0.975))
 
 Ts = seq(T)
 plot(Ts,y,
@@ -157,6 +159,11 @@ plot(Ts,y,
 lines(Ts, Xmeans)
 lines(Ts, Xquants[1,], lty=2)
 lines(Ts, Xquants[2,], lty=2)
+
+# latent field x_10
+hist(X[-c(1:burnin),10], freq=F, breaks=50,
+     main="Gibbs-MCMC posterior marginal for x_10",
+     xlab="x_10")
 ```
 The histogram shows the posterior marginal for $\theta$ which is obtained by Gibbs MCMC. The plot shows again the observation data together with the linearly interpolated posterior means (solid line) and the 0.025 as well as 0.975 quantile (dashed line) from the Gibbs MCMC. We use 10.000 MCMC samples after a burn-in period of 1.000 steps.
 
@@ -176,10 +183,12 @@ where it is noteworthy that all distributions are known from before:
 
 The approximation is build using a $\theta$-grid in the interval $[0,6]$, moreover this is valid for all $x$ wherefore we choose $\mathrm{x}=0$ for simplicity.
 
+TODO: Derivations!!!
+
 ```{r B3}
 # theta grid 
-grid_reso = 0.25
-thetas = seq(from=0, to=6, by=grid_reso)
+tgrid_reso = 0.25
+thetas = seq(from=0, to=6, by=tgrid_reso)
 
 x = rep(0,T)
 
@@ -203,13 +212,59 @@ ldenominator = log(denominator)
 
 lpost_marginal_theta = lnumerator1 + lnumerator2 + lnumerator3 - ldenominator
 post_marginal_theta = exp(lpost_marginal_theta)
-post_marginal_theta = post_marginal_theta/(sum(post_marginal_theta)*grid_reso)
+post_marginal_theta = post_marginal_theta/(sum(post_marginal_theta)*tgrid_reso)
 
 plot(thetas, post_marginal_theta,
      main="INLA inference for hyper posterior",
      xlab="theta", ylab="density",
      type="l")
 ```
+
+
+## 4. 
+
+Since $\pi(\mathrm{x}|\theta,\mathrm{y})$ is Gaussian also its component $\pi(x_10|\theta,\mathrm{y})$ is Gaussian with distribution $\mathcal{N}(\mu_10,\Sigma_{10,10})$.
+
+
+```{r B4}
+xgrid_reso = 0.1
+xs = seq(from=-2, to=2, by=xgrid_reso)
+post_marginal_x = rep(0,length(xs))
+post_fullcond_x = matrix(0, nrow=length(thetas), ncol=length(xs))
+post_fullcond_x_weighted = matrix(0, nrow=length(thetas), ncol=length(xs))
+
+for (k in 1:length(thetas)){
+  Sigma = solve(thetas[k]*Q+diag(T))
+  mu = Sigma%*%y
+  
+  post_fullcond_x[k,] = dnorm(xs, mu[10], Sigma[10,10])
+  post_fullcond_x_weighted[k,] = post_fullcond_x[k,] * post_marginal_theta[k] * tgrid_reso
+  post_marginal_x = post_marginal_x + post_fullcond_x_weighted[k,]
+}
+
+post_marginal_x = post_marginal_x/(sum(post_marginal_x)*xgrid_reso)
+
+plot(x=xs,y=post_fullcond_x[1,], type="l",
+     main="INLA posterior conditioned on theta (unweighted)",
+     ylim=c(0,2), xlab="x_10", ylab="density")
+for (i in 2:length(thetas)){
+  lines(xs, post_fullcond_x[i,])
+}
+
+plot(x=xs,y=post_fullcond_x_weighted[1,], type="l",
+     main="INLA posterior conditioned on theta (weighted)",
+     ylim=c(0,2), xlab="x_10", ylab="density")
+for (i in 2:length(thetas)){
+  lines(xs, post_fullcond_x_weighted[i,])
+}
+
+plot(xs, post_marginal_x, type="l",
+     main="INLA posterior marginal for x_10",
+     xlab="x_10", ylab="density")
+
+```
+
+TODO: wrong scaling!!!
 
 
 ## 5.
