@@ -237,7 +237,7 @@ for (k in 1:length(thetas)){
   Sigma = solve(thetas[k]*Q+diag(T))
   mu = Sigma%*%y
   
-  post_fullcond_x[k,] = dnorm(xs, mu[10], Sigma[10,10])
+  post_fullcond_x[k,] = dnorm(xs, mu[10], sqrt(Sigma[10,10]))
   post_fullcond_x_weighted[k,] = post_fullcond_x[k,] * post_marginal_theta[k] * tgrid_reso
   post_marginal_x = post_marginal_x + post_fullcond_x_weighted[k,]
 }
