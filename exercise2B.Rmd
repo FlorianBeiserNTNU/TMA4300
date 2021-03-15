@@ -237,12 +237,12 @@ Since $\pi(\mathrm{x}|\theta,\mathrm{y})$ is Gaussian also its component $\pi(x_
 
 ```{r B4}
 index=10
+
+# x10 grid
 xgrid_reso = 0.1
+xs = seq(from=-2, to=2, by=xgrid_reso)
 
-post_marginal_xs <- function(index, xgrid_reso){
-  # x10 grid
-  xs = seq(from=-2, to=2, by=xgrid_reso)
-
+post_marginal_xs <- function(index, xs){
   # bookkeeping
   post_marginal_x = rep(0,length(xs))
   post_fullcond_x = matrix(0, nrow=length(thetas), ncol=length(xs))
@@ -267,7 +267,7 @@ post_marginal_xs <- function(index, xgrid_reso){
 }
 
 # Evaluating function and storing separately
-post_marginal_x_result = post_marginal_xs(index, xgrid_reso)
+post_marginal_x_result = post_marginal_xs(index, xs)
 post_marginal_x = post_marginal_x_result[[1]]
 post_fullcond_x = post_marginal_x_result[[2]]
 post_fullcond_x_weighted = post_marginal_x_result[[3]]
