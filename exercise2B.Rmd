@@ -227,23 +227,30 @@ Since $\pi(\mathrm{x}|\theta,\mathrm{y})$ is Gaussian also its component $\pi(x_
 
 
 ```{r B4}
+# x10 grid
 xgrid_reso = 0.1
 xs = seq(from=-2, to=2, by=xgrid_reso)
+
+# bookkeeping
 post_marginal_x = rep(0,length(xs))
 post_fullcond_x = matrix(0, nrow=length(thetas), ncol=length(xs))
 post_fullcond_x_weighted = matrix(0, nrow=length(thetas), ncol=length(xs))
 
+# Numerical intregration of integral on x grid
 for (k in 1:length(thetas)){
+  # dependencies of theta
   Sigma = solve(thetas[k]*Q+diag(T))
   mu = Sigma%*%y
   
+  # pi(x|theta,y)
   post_fullcond_x[k,] = dnorm(xs, mu[10], sqrt(Sigma[10,10]))
+  # pi(x|theta,y) pi(theta|y) Delta theta
   post_fullcond_x_weighted[k,] = post_fullcond_x[k,] * post_marginal_theta[k] * tgrid_reso
+  # Update
   post_marginal_x = post_marginal_x + post_fullcond_x_weighted[k,]
 }
 
-post_marginal_x = post_marginal_x/(sum(post_marginal_x)*xgrid_reso)
-
+# plotting pi(x|theta,y) 
 plot(x=xs,y=post_fullcond_x[1,], type="l",
      main="INLA posterior conditioned on theta (unweighted)",
      ylim=c(0,2), xlab="x_10", ylab="density")
@@ -251,6 +258,7 @@ for (i in 2:length(thetas)){
   lines(xs, post_fullcond_x[i,])
 }
 
+# plotting pi(x|theta,y) pi(theta|y) Delta theta
 plot(x=xs,y=post_fullcond_x_weighted[1,], type="l",
      main="INLA posterior conditioned on theta (weighted)",
      ylim=c(0,2), xlab="x_10", ylab="density")
@@ -258,13 +266,13 @@ for (i in 2:length(thetas)){
   lines(xs, post_fullcond_x_weighted[i,])
 }
 
+# Plotting pi(x|y)
 plot(xs, post_marginal_x, type="l",
      main="INLA posterior marginal for x_10",
      xlab="x_10", ylab="density")
 
 ```
 
-TODO: wrong scaling!!!
 
 
 ## 5.
