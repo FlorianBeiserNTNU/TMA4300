@@ -40,6 +40,8 @@ is obviously a GMRF where we will go into detail of the precision matrix a bit f
 Lastly, a Gamma prior is given for the hyperparameter $\theta$, i.e.
 $$3. \quad \theta \sim Gamma(1,1).$$
 
+In this exercise, we utilize different methods and implementation for Bayesian inference of the marginal posteriors - we will compare the results all together at the end and not after each subpart.
+
 ## 1.
 
 Therewith, the model shows the clear structure of a latent Gaussian model, since the latent field is Gaussian distributed. Moreover, the precision matrix of the GMRF is sparse, which makes the model suitable for an INLA approach.
@@ -148,6 +150,11 @@ hist(Theta[-c(1:burnin)], freq=F, breaks=50,
      main="Gibbs-MCMC posterior marginal for theta",
      xlab="theta")
 
+# latent field x_10
+hist(X[-c(1:burnin),10], freq=F, breaks=50,
+     main="Gibbs-MCMC posterior marginal for x_10",
+     xlab="x_10")
+
 # latent field x
 Xmeans = colMeans(X[-c(1:burnin),])
 Xquants = apply(X[-c(1:burnin),], 2, quantile, probs=c(0.025,0.975))
@@ -160,10 +167,6 @@ lines(Ts, Xmeans)
 lines(Ts, Xquants[1,], lty=2)
 lines(Ts, Xquants[2,], lty=2)
 
-# latent field x_10
-hist(X[-c(1:burnin),10], freq=F, breaks=50,
-     main="Gibbs-MCMC posterior marginal for x_10",
-     xlab="x_10")
 ```
 The histogram shows the posterior marginal for $\theta$ which is obtained by Gibbs MCMC. The plot shows again the observation data together with the linearly interpolated posterior means (solid line) and the 0.025 as well as 0.975 quantile (dashed line) from the Gibbs MCMC. We use 10.000 MCMC samples after a burn-in period of 1.000 steps.
 
@@ -181,9 +184,15 @@ where it is noteworthy that all distributions are known from before:
 - $\pi(\theta) \sim Gamma(1,1)$
 - $\pi(\mathrm{x}|\theta,\mathrm{y})\sim\mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})$
 
-The approximation is build using a $\theta$-grid in the interval $[0,6]$, moreover this is valid for all $x$ wherefore we choose $\mathrm{x}=0$ for simplicity.
+The approximation is build using a $\theta$-grid in the interval $[0,6]$, moreover this is valid for all $x$ wherefore we choose $\mathrm{x}=0$ for simplicity, such that several terms will vanish. 
 
-TODO: Derivations!!!
+- First, the hyperprior is independent of $x$, where $\pi(\theta)=\exp(-\theta)$
+- For $\mathrm{x}=0$ in the latent Gaussian field the argument in the exponential vanishes and therefore it only contributes a constant factor of 1, such that $\pi(0|\theta)=\theta^{\frac{T-2}2}$
+- The likelihood does not depend explicitly on $\theta$. Further, $\mathrm{x}=0$ means that the mean in the normal distribution is $0$ and we end up with the standard normal (since variances are 1 and uncorrelated) whose density value is evaluted at $\mathrm{y}$, i.e. $\pi(\mathrm{y}|0) \equiv \exp(-\frac12\mathrm{y}^\top\mathrm{y})$
+- Lastly, the full conditional of the latent field is as derived above $\pi(\mathrm{x})|\mathrm{y},\theta) = \exp(-\frac12(\mathrm{x}-\mathrm{\mu}(\theta))\Sigma(\theta)^{-1}(\mathrm{x}-\mathrm{\mu}(\theta)))$
+
+Since those calculation involve products and ratios of very small numbers, we perform those calculations in log-scale. Moreover, we normalize the result at the end.
+
 
 ```{r B3}
 # theta grid 
@@ -227,28 +236,41 @@ Since $\pi(\mathrm{x}|\theta,\mathrm{y})$ is Gaussian also its component $\pi(x_
 
 
 ```{r B4}
-# x10 grid
+index=10
 xgrid_reso = 0.1
-xs = seq(from=-2, to=2, by=xgrid_reso)
 
-# bookkeeping
-post_marginal_x = rep(0,length(xs))
-post_fullcond_x = matrix(0, nrow=length(thetas), ncol=length(xs))
-post_fullcond_x_weighted = matrix(0, nrow=length(thetas), ncol=length(xs))
+post_marginal_xs <- function(index, xgrid_reso){
+  # x10 grid
+  xs = seq(from=-2, to=2, by=xgrid_reso)
 
-# Numerical intregration of integral on x grid
-for (k in 1:length(thetas)){
-  # dependencies of theta
-  Sigma = solve(thetas[k]*Q+diag(T))
-  mu = Sigma%*%y
+  # bookkeeping
+  post_marginal_x = rep(0,length(xs))
+  post_fullcond_x = matrix(0, nrow=length(thetas), ncol=length(xs))
+  post_fullcond_x_weighted = matrix(0, nrow=length(thetas), ncol=length(xs))
   
-  # pi(x|theta,y)
-  post_fullcond_x[k,] = dnorm(xs, mu[10], sqrt(Sigma[10,10]))
-  # pi(x|theta,y) pi(theta|y) Delta theta
-  post_fullcond_x_weighted[k,] = post_fullcond_x[k,] * post_marginal_theta[k] * tgrid_reso
-  # Update
-  post_marginal_x = post_marginal_x + post_fullcond_x_weighted[k,]
+  # Numerical intregration of integral on x grid
+  for (k in 1:length(thetas)){
+    # dependencies of theta
+    Sigma = solve(thetas[k]*Q+diag(T))
+    mu = Sigma%*%y
+    
+    # pi(x|theta,y)
+    post_fullcond_x[k,] = dnorm(xs, mu[index], sqrt(Sigma[index,index]))
+    # pi(x|theta,y) pi(theta|y) Delta theta
+    post_fullcond_x_weighted[k,] = post_fullcond_x[k,] * post_marginal_theta[k] * tgrid_reso
+    # Update
+    post_marginal_x = post_marginal_x + post_fullcond_x_weighted[k,]
+  }
+  
+  return(list(post_marginal_x, post_fullcond_x, post_fullcond_x_weighted))
+
 }
+
+# Evaluating function and storing separately
+post_marginal_x_result = post_marginal_xs(index, xgrid_reso)
+post_marginal_x = post_marginal_x_result[[1]]
+post_fullcond_x = post_marginal_x_result[[2]]
+post_fullcond_x_weighted = post_marginal_x_result[[3]]
 
 # plotting pi(x|theta,y) 
 plot(x=xs,y=post_fullcond_x[1,], type="l",
@@ -274,15 +296,16 @@ plot(xs, post_marginal_x, type="l",
 ```
 
 
-
 ## 5.
+
+In addition to the previous self-implemented INLA routines, we utilize now the `R-INLA` package for exactly the same model.
 
 ```{r B5}
 library(INLA)
 data = list(y=y, t=seq(length(y)) )
 
 # Define model
-formula = y ~  f( t, 
+formula = y ~ f( t, 
                  model = "rw2", 
                  hyper = list(theta=list(prior="loggamma", param=c(1,1))),
                  cyclic=F,
@@ -300,12 +323,19 @@ result = inla(formula = formula,
 # Inference
 
 # marginal hyperparam
-INLAtheta = result$marginals.hyperpar[[2]]
+INLAtheta = inla.smarginal(result$marginals.hyperpar[[2]])
 
-plot(inla.smarginal(INLAtheta), 
+plot(INLAtheta, type="l", col="red",
      main="INLA approximation for hyper marginal",
      xlab="theta", ylab="density",
      xlim=c(0,6))
+
+# marginal x10
+INLAx10 = result$marginals.linear.predictor$Predictor.10
+
+plot(INLAx10, type="l", col="red",
+     main="R-INLA posterior for x10",
+     xlab="x10", xlim=c(-2,2), ylab="density")
 
 # marginal latent field
 INLAx = result$summary.linear.predictor
@@ -313,8 +343,74 @@ INLAx = result$summary.linear.predictor
 plot(Ts,y,
      main="INLA inference for the latent field",
      xlab="t", ylab="value")
-lines(Ts, INLAx$mean)
-lines(Ts, INLAx$`0.025quant`, lty=2)
-lines(Ts, INLAx$`0.975quant`, lty=2)
+lines(Ts, INLAx$mean, col="red")
+lines(Ts, INLAx$`0.025quant`, lty=2, col="red")
+lines(Ts, INLAx$`0.975quant`, lty=2, col="red")
 
 ```
+
+
+## Comparison of results
+
+To put the quality of all methods into a nutshell, we compare the properties of the resulting distributions. 
+
+### Posterior marginal for $\theta$
+
+We compare the result of Gibbs-MCMC, (user implemented) INLA and R-INLA. 
+
+- Histrogram from Gibbs-MCMC 
+- Black line from INLA
+- Red line from R-INLA
+
+```{r Comparison1}
+# Plotting as above
+hist(Theta[-c(1:burnin)], freq=F, breaks=50,
+     main="Posterior marginal for theta",
+     xlab="theta", xlim=c(0,6))
+lines(thetas, post_marginal_theta)
+lines(INLAtheta_marginal, col="red")
+```
+We see that all methods agree (with respect to the chosen precision of calculations).
+
+### Posterior marginal for $x_10$
+
+We compare the result of Gibbs-MCMC, (user implemented) INLA and R-INLA. 
+
+- Histrogram from Gibbs-MCMC 
+- Black line from INLA
+- Red line from R-INLA
+
+```{r Comparison2}
+# Plotting as above
+hist(X[-c(1:burnin),10], freq=F, breaks=50,
+     main="Posterior marginal for x_10",
+     xlab="x_10", xlim=c(-2,2))
+lines(xs, post_marginal_x)
+lines(INLAx10, col="red")
+```
+
+The line of R-INLA is shifted but we assume that we have picked the wrong marginal version, but it is hard (or even impossible) to figure out the definitions from the "documentation".
+
+### Posterior marginal for $x$
+
+We compare the result of Gibbs-MCMC, (user implemented) INLA and R-INLA. 
+
+- Green from Gibbs-MCMC 
+- Red line from R-INLA
+
+```{r Comparison3}
+# Plotting as above
+plot(Ts,y,
+     main="Inference for the latent field",
+     xlab="t", ylab="value")
+lines(Ts, Xmeans, col="blue")
+lines(Ts, Xquants[1,], lty=2, col="blue")
+lines(Ts, Xquants[2,], lty=2, col="blue")
+
+lines(Ts, INLAx$mean, col="red")
+lines(Ts, INLAx$`0.025quant`, lty=2, col="red")
+lines(Ts, INLAx$`0.975quant`, lty=2, col="red")
+```
+ 
+Note that we have not included INLA in this comparison since we have only insepected the 10th index before but all indices would be needed here. Nevertheless, the Gibbs-MCMC and R-INLA results coincide very well here.
+
