@@ -1,0 +1,164 @@
+---
+title: "exercise2"
+author: "Florian Beiser, Martin Lie"
+date: "19.03.2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem A: The coal-mining disaster
+
+In this exercise we analyse the coal-mining disasters in the UK from 1851 to 1962. 
+
+## 1
+
+The dataset contains the dates of coal-mining disasters with more than 10 victims. We start with an illustration of the data.
+
+```{r A1}
+# Load data
+coal = as.double(as.matrix(read.table("coalmine.txt")))
+
+# Plotting
+plot(coal[-c(1,length(coal))], seq(length(coal)-2),
+     main="Cumulative number of coal-mining disasters",
+     xlab="time(years)", ylab="")
+```
+
+The previous figure suggests that between 1850 and 1890 disasters happend very regularily such that we have an almost linear increase in the cumulative number. After 1890 the frequency reduced, but it still seems rather regularily (somewhat linear behaviour with less steep slope).
+
+For statistical modelling a hierachical Bayesian model with an inhomogenous Poisson process is chosen. The time interval is devided into 2 parts $[t_0,t_1]$ and $[t_1,t_2]$ where $t_0$ and $t_2$ are the start and end point of the observation interval respectively. On each interval the Poisson model follows the coefficients $\lambda_0$ and $\lambda_1$ respectively. For an observation $x=(y_1,y_2)$ were $y_i$ are the number of disasters in interval $i$, the likelihood is
+$$
+f(x|\theta) = \exp(-\lambda_0(t_1-t_0)-\lambda_1(t_2-t_1))\lambda_0^{y_0}\lambda_1^{y_1}.
+$$
+The Poisson coefficients are equipped with a $Gamma(2,\beta)$ prior:
+$$
+f(\lambda_i|\beta) = \frac\beta2\lambda_i\exp(\frac{\lambda_i}\beta)
+$$
+
+Last the hyperparameter $\beta$ get the improper prior 
+$$
+f(\beta)\propto \frac1\beta \exp(-\frac1\beta)
+$$
+
+For notational convenience all parameters are collected together $\theta=(t_1,\lambda_0, \lambda_1,\beta)$.
+
+## 2
+
+The posterior is calculated Bayesian formula:
+
+$$
+\begin{align*}
+f(\theta|x)&\propto f(x|\theta)f(\lambda_0|\beta)f(\lambda_1|\beta)f(t_1)f(\beta) \\
+&= \frac1{\beta^5}\lambda_0^{y_0+1}\lambda_1^{y_1+1}\exp(\lambda_0t_0 - \lambda_0t_1 -\frac{\lambda_0}\beta - \lambda_1t_1 - \frac{\lambda_1}\beta + \lambda_1t_2 - \frac1\beta)\mathrm{1}_{[t_0,t_2]}(t_1)
+\end{align*}
+$$
+
+## 3
+
+The full conditionals are derived from the posterior by omitting all multiplicative factors that do not depend on the parameter of interest (remember that $f(\theta_i|x,\theta_{-i})\propto f(\theta|x)$):
+
+$$
+f(t_1|x,\theta_{-t_1}) \propto \lambda_0^{y_0+1}\lambda_1^{y_1+1} \exp(- (\lambda_0+\lambda_1)t_1 )\mathrm{1}_{[t_0,t_2]}(t_1) \sim \texttt{"unnamed"}
+$$
+$$
+f(\lambda_i|x,\theta_{-\lambda_i}) \propto \lambda_i^{y_i}\exp(\lambda_i (t_i - t_{i+1} -\frac{1}\beta)) \sim Gamma(y_i+2,t_{i+1}-t_i +\frac{1}\beta))
+$$
+
+$$
+f(\beta|x,\theta_{-\beta}) \propto \beta^{-5}\exp( -\frac{(\lambda_0+\lambda_1+1)}\beta) \sim IG(4,\lambda_0+\lambda_1+1)
+$$
+## 4 
+
+We apply a single-site MCMC to sample from the posterior distribution
+
+- Update $\beta$ by a Gibbs step
+- Update $\lambda_0$ by a Gibbs step
+- Update $\lambda_1$ by a Gibbs step
+- Propose a new $t^*$ using a normal distribution with variance $\sigma^2$ in a random walk MCMC
+
+The acceptance probability for the random walk step is in general $\alpha = \min(1,\frac{f(t^*|x,\theta_{-t})}{f(t|x,\theta_{-t})})$ 
+
+```{r A4}
+library(invgamma)
+# From data
+t0 = coal[1]
+t2 = coal[length(coal)]
+x = coal[-c(1,length(coal))]
+
+# Input 
+sigma = 10
+N = 5000
+
+# MCMC
+# generating a chain by using aboves single site scheme
+
+# Arguments:
+# N: number of steps (including burn-in)
+# sigma: tuning parameter for the RW site
+
+MCMC <- function(N, sigma){
+  # Initialisation
+  beta = 0.1 
+  lambda0 = rgamma(1, shape=2, scale=beta)
+  lambda1 = rgamma(1, shape=2, scale=beta)
+  t1 = t0+(t2-t0)/2
+  
+  # Bookkeeping
+  T1 = rep(t1,N)
+  Beta = rep(beta,N)
+  Lambda0 = rep(lambda0,N)
+  Lambda1 = rep(lambda1,N)
+  
+  # MCMC Loop
+  for (i in 2:N){
+    # split x 
+    y0 = length(x[x<t1])
+    y1 = length(x)-y0
+    
+    # Update beta
+    beta = rinvgamma(1, shape=4, scale=lambda0+lambda1+1)
+    Beta[i] = beta
+    
+    # Update lambda0
+    lambda0 = rgamma(1, shape=y0+1, rate=-(t0-t1-1/beta))
+    Lambda0[i] = lambda0
+    
+    # Update lambda1 
+    lambda1 = rgamma(1, shape=y1+1, rate=-(t1-t2-1/beta))
+    Lambda1[i] = lambda1
+    
+    # Propose t1
+    t1_prop = min(max(t0,rnorm(1, mean=t1, sd=sigma)),t2)
+    y0_prop = length(x[x<t1_prop])
+    y1_prop = length(x)-y0_prop
+    
+    ldens_new = (y0_prop+1)*log(lambda0) + (y1_prop+1)*log(lambda1) -(lambda0+lambda1)*t1_prop
+    ldens_old = (y0+1)*log(lambda0) + (y1+1)*log(lambda1) -(lambda0+lambda1)*t1
+
+    # Accetance or rejection of beta proposal
+    alpha = min(1,exp(ldens_new-ldens_old))
+    if (runif(1) < alpha) {
+      t1 = t1_prop
+    } 
+    T1[i] = t1
+  }
+  
+  return(list(t1=T1,lambda0=Lambda0,lambda1=Lambda1,beta=Beta))
+}
+  
+chains = MCMC(N, sigma)
+Beta = chains$beta
+Lambda0 = chains$lambda0
+Lambda1 = chains$lambda1
+T1 = chains$t1
+
+plot(Beta, type="l")
+plot(Lambda0, type="l")
+plot(Lambda1, type="l")
+plot(T1, type="l")
+
+
+```
