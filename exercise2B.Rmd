@@ -392,7 +392,8 @@ lines(xs, post_marginal_x)
 lines(INLAx10, col="red")
 ```
 
-The line of R-INLA is shifted but we assume that we have picked the wrong marginal version, but it is hard (or even impossible) to figure out the definitions from the "documentation".
+Again all methods agree on the distribution. Note that INLA does not rely on sampling and therefore the numerical approximations of INLA are finer. 
+
 
 ### Posterior marginal for $x$
 
