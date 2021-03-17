@@ -35,7 +35,7 @@ f(x|\theta) = \exp(-\lambda_0(t_1-t_0)-\lambda_1(t_2-t_1))\lambda_0^{y_0}\lambda
 $$
 The Poisson coefficients are equipped with a $Gamma(2,\beta)$ prior:
 $$
-f(\lambda_i|\beta) = \frac\beta2\lambda_i\exp(\frac{\lambda_i}\beta)
+f(\lambda_i|\beta) = \frac1{\beta^2}\lambda_i\exp(\frac{\lambda_i}\beta)
 $$
 
 Last the hyperparameter $\beta$ get the improper prior 
@@ -52,7 +52,7 @@ The posterior is calculated Bayesian formula:
 $$
 \begin{align*}
 f(\theta|x)&\propto f(x|\theta)f(\lambda_0|\beta)f(\lambda_1|\beta)f(t_1)f(\beta) \\
-&= \frac1{\beta^5}\lambda_0^{y_0+1}\lambda_1^{y_1+1}\exp(\lambda_0t_0 - \lambda_0t_1 -\frac{\lambda_0}\beta - \lambda_1t_1 - \frac{\lambda_1}\beta + \lambda_1t_2 - \frac1\beta)\mathrm{1}_{[t_0,t_2]}(t_1)
+&= \frac1{\beta^5}\lambda_0^{y_0+1}\lambda_1^{y_1+1}\exp(\lambda_0t_0 - \lambda_0t_1 -\frac{\lambda_0}\beta + \lambda_1t_1 - \frac{\lambda_1}\beta - \lambda_1t_2 - \frac1\beta)\mathrm{1}_{[t_0,t_2]}(t_1)
 \end{align*}
 $$
 
@@ -61,10 +61,10 @@ $$
 The full conditionals are derived from the posterior by omitting all multiplicative factors that do not depend on the parameter of interest (remember that $f(\theta_i|x,\theta_{-i})\propto f(\theta|x)$):
 
 $$
-f(t_1|x,\theta_{-t_1}) \propto \lambda_0^{y_0+1}\lambda_1^{y_1+1} \exp(- (\lambda_0+\lambda_1)t_1 )\mathrm{1}_{[t_0,t_2]}(t_1) \sim \texttt{"unnamed"}
+f(t_1|x,\theta_{-t_1}) \propto \lambda_0^{y_0}\lambda_1^{y_1} \exp(- (\lambda_0-\lambda_1)t_1 )\mathrm{1}_{[t_0,t_2]}(t_1) \sim \texttt{"unnamed"}
 $$
 $$
-f(\lambda_i|x,\theta_{-\lambda_i}) \propto \lambda_i^{y_i}\exp(\lambda_i (t_i - t_{i+1} -\frac{1}\beta)) \sim Gamma(y_i+2,t_{i+1}-t_i +\frac{1}\beta))
+f(\lambda_i|x,\theta_{-\lambda_i}) \propto \lambda_i^{y_i+1}\exp(-\lambda_i ( t_{i+1} -t_i +\frac{1}\beta)) \sim Gamma(y_i+2,t_{i+1}-t_i +\frac{1}\beta))
 $$
 
 $$
@@ -89,7 +89,7 @@ t2 = coal[length(coal)]
 x = coal[-c(1,length(coal))]
 
 # Input 
-sigma = 10
+sigma = 3
 N = 5000
 
 # MCMC
@@ -119,7 +119,7 @@ MCMC <- function(N, sigma){
     y1 = length(x)-y0
     
     # Update beta
-    beta = rinvgamma(1, shape=4, scale=lambda0+lambda1+1)
+    beta = rinvgamma(1, shape=4, lambda0+lambda1+1)
     Beta[i] = beta
     
     # Update lambda0
@@ -135,8 +135,8 @@ MCMC <- function(N, sigma){
     y0_prop = length(x[x<t1_prop])
     y1_prop = length(x)-y0_prop
     
-    ldens_new = (y0_prop+1)*log(lambda0) + (y1_prop+1)*log(lambda1) -(lambda0+lambda1)*t1_prop
-    ldens_old = (y0+1)*log(lambda0) + (y1+1)*log(lambda1) -(lambda0+lambda1)*t1
+    ldens_new = y0_prop*log(lambda0) + y1_prop*log(lambda1) -(lambda0-lambda1)*t1_prop
+    ldens_old = y0*log(lambda0) + y1*log(lambda1) -(lambda0-lambda1)*t1
 
     # Accetance or rejection of beta proposal
     alpha = min(1,exp(ldens_new-ldens_old))
@@ -149,16 +149,56 @@ MCMC <- function(N, sigma){
   return(list(t1=T1,lambda0=Lambda0,lambda1=Lambda1,beta=Beta))
 }
   
+# Extract chains from function
 chains = MCMC(N, sigma)
-Beta = chains$beta
-Lambda0 = chains$lambda0
-Lambda1 = chains$lambda1
-T1 = chains$t1
+```
 
-plot(Beta, type="l")
-plot(Lambda0, type="l")
-plot(Lambda1, type="l")
-plot(T1, type="l")
+```{r}
+# Arguments:
+# chains: as output of MCMC function
 
+# Function:
+# generating traceplots for all parameters
+tracePlots <- function(chains){
+  par(mfrow=c(2,2))
+  # Single chains
+  Beta = chains$beta
+  Lambda0 = chains$lambda0
+  Lambda1 = chains$lambda1
+  T1 = chains$t1
+  
+  plot(Beta, type="l", 
+      main="Traceplot for beta", xlab="beta")
+  plot(Lambda0, type="l",
+       main="Traceplot for lambda0", xlab="lambda0")
+  plot(Lambda1, type="l",
+       main="Traceplot for lambda1", xlab="lambda1")
+  plot(T1, type="l",
+       main="Traceplot for t1", xlab="t1")
+}
+
+tracePlots(chains)
+
+# Arguments:
+# chains as by MCMC fucntion
+
+# Function:
+# Generating autocorrelation
+acfPlots <- function(chains){
+  par(mfrow=c(2,2))
+  par(oma=c(2,0,2,0))  
+  # Single chains
+  Beta = chains$beta
+  Lambda0 = chains$lambda0
+  Lambda1 = chains$lambda1
+  T1 = chains$t1
+  
+  acf(Beta, main="Autocorrelation for beta")
+  acf(Lambda0, main="Autocorrelation for lambda0")
+  acf(Lambda1, main="Autocorrelation for lambda0")
+  acf(T1, main="Autocorrelation for t1")
+}
+
+acfPlots(chains)
 
 ```
