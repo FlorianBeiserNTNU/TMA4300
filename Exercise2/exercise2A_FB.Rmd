@@ -247,21 +247,22 @@ chains4 = MCMC(20000, sigma=25.0)
 tracePlots(chains4)
 acfPlots(chains4)
 
-hist(chains1$t1[-c(1:500)], freq=F, breaks=50,
+hist(chains1$t1[-c(1:1000)], freq=F, breaks=50,
      main="t1 distribtuion with sigma = 0.5", 
      xlab="t1", xlim=c(1880,1900))
-hist(chains2$t1[-c(1:500)], freq=F, breaks=50,
+hist(chains2$t1[-c(1:1000)], freq=F, breaks=50,
      main="t1 distribtuion with sigma = 1.0", 
      xlab="t1", xlim=c(1880,1900))
-hist(chains3$t1[-c(1:500)], freq=F, breaks=50,
+hist(chains3$t1[-c(1:1000)], freq=F, breaks=50,
      main="t1 distribtuion with sigma = 3.5", 
      xlab="t1", xlim=c(1880,1900))
-hist(chains4$t1[-c(1:500)], freq=F, breaks=50,
+hist(chains4$t1[-c(1:1000)], freq=F, breaks=50,
      main="t1 distribtuion with sigma = 25.", 
      xlab="t1", xlim=c(1880,1900))
 ```
 
-For too small choices of $\sigma$ the chain moves very slow, the space is explored with a very high autocorrelation for many lags and we have a long burn-in phase (around 500 steps). The burn-in is shorter and the mixing better for moderate values of $\sigma \in [2,5]$. Whereas for ridiculous large values values of $\sigma$ the burn-in stays short, but the chain pauses too long since many steps get rejected and autocorrelation increases again. Note that this discussion addresses the performance of the MCMC in dependence of the tuning parameter. Qualitatively we can see that all chains converge to the same distribution independent of the choice of the tuning parameter! (See histograms)
+Since the distributions for $\beta,\lambda_0,\lambda_1$ are generated with Gibbs sampling which does not invovle the tuning parameter, we pay here attention to the chain of $t_1$.
+For too small choices of $\sigma$ the chain moves very slow, the space is explored with a very high autocorrelation for many lags and we have a long burn-in phase. The burn-in is shorter and the mixing better for moderate values of $\sigma \in [2,5]$. Whereas for ridiculous large values values of $\sigma$ the burn-in stays short, but the chain pauses too long since many steps get rejected and autocorrelation increases again. Note that this discussion addresses the performance of the MCMC in dependence of the tuning parameter. Qualitatively we can see that all chains converge to the same distribution independent of the choice of the tuning parameter! (See histograms)
 
 
 ## 7 
