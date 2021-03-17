@@ -144,7 +144,6 @@ MCMC <- function(N, sigma){
   
   return(list(t1=T1,lambda0=Lambda0,lambda1=Lambda1,beta=Beta))
 }
-  
 
 ```
 
@@ -153,7 +152,7 @@ MCMC <- function(N, sigma){
 
 We now build Markov chains using the single-site algorithm from above and evaluate its performance. For the length of the burn-in period we inspect trace plots and for the mixing we observe the autocorrelation (there are further criteria like ESS and Geweke diagnostics, but we focus on the previously mentioned, since they are very visual).
 
-```{r}
+```{r A5}
 # Input 
 sigma = 3.5
 N = 2000
@@ -218,11 +217,56 @@ l1 = length(x2)/(x2[length(x2)]-x2[1])
 print(paste("From the MCMC we assume a split at ",t1_mean))
 print(paste("From the data we estimate lambda0 for aboves t1 as ", l0))
 print(paste("From the data we estimate lambda1 for aboves t1 as ", l1))
+
 ```
 
 The trace plots suggest that the samples represent the target distribution after around 100 steps rather well and we cannot observe further changes of the distribution such that we choose the burn-in period of 100 steps. Further, the autocorrelation plots prove that the chains for $\beta,\lambda_0,\lambda_1$ mix very well as we expect it for Gibbs steps. For $t_1$ the mixing is not as good, since several steps get rejected and the chain pauses in a state for several steps.
 
 Moreover, the distribution make a lot of sense to us since we already guessed that $t_1$ would be around 1890 (see sub-part 1) and in the Bayesian setting the distribution for $t_1$ which was generated with MCMC coincides with this intuition. Ad parameter, we can estimate the disasters per year before and after the cut at $t_1$, i.e. $\lambda_0$ and $\lambda_1$ from the data. For the parameter in the first interval we estimate around 3 disasters per year and this is again remodelled in the Bayesian setting of the MCMC with $\lambda_0$ having the mass of its distribution little above 3. Similarly, we observe a bit less than 1 disaster per year and $\lambda_1$ has it mass a bit below 1, such that this again coincides and we value our results as very reasonable. 
 
+
+## 6 
+
+The random walk proposal step in the MCMC algorithms uses the tuning parameter $\sigma$ for the standard deviation in the normal distribution. 
+
+```{r A6}
+
+chains1 = MCMC(20000, sigma=0.5)
+tracePlots(chains1)
+acfPlots(chains1)
+
+chains2 = MCMC(20000, sigma=1)
+tracePlots(chains2)
+acfPlots(chains2)
+
+chains3 = MCMC(20000, sigma=3.5)
+tracePlots(chains3)
+acfPlots(chains3)
+
+chains4 = MCMC(20000, sigma=25.0)
+tracePlots(chains4)
+acfPlots(chains4)
+
+hist(chains1$t1[-c(1:500)], freq=F, breaks=50,
+     main="t1 distribtuion with sigma = 0.5", 
+     xlab="t1", xlim=c(1880,1900))
+hist(chains2$t1[-c(1:500)], freq=F, breaks=50,
+     main="t1 distribtuion with sigma = 1.0", 
+     xlab="t1", xlim=c(1880,1900))
+hist(chains3$t1[-c(1:500)], freq=F, breaks=50,
+     main="t1 distribtuion with sigma = 3.5", 
+     xlab="t1", xlim=c(1880,1900))
+hist(chains4$t1[-c(1:500)], freq=F, breaks=50,
+     main="t1 distribtuion with sigma = 25.", 
+     xlab="t1", xlim=c(1880,1900))
+```
+
+For too small choices of $\sigma$ the chain moves very slow, the space is explored with a very high autocorrelation for many lags and we have a long burn-in phase (around 500 steps). The burn-in is shorter and the mixing better for moderate values of $\sigma \in [2,5]$. Whereas for ridiculous large values values of $\sigma$ the burn-in stays short, but the chain pauses too long since many steps get rejected and autocorrelation increases again. Note that this discussion addresses the performance of the MCMC in dependence of the tuning parameter. Qualitatively we can see that all chains converge to the same distribution independent of the choice of the tuning parameter! (See histograms)
+
+
+## 7 
+
+
+## 8 
 
 
