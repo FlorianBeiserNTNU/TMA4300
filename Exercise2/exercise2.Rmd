@@ -49,12 +49,11 @@ For notational convenience all parameters are collected together $\theta=(t_1,\l
 
 The posterior is calculated Bayesian formula:
 
-$$
 \begin{align*}
 f(\theta|x)&\propto f(x|\theta)f(\lambda_0|\beta)f(\lambda_1|\beta)f(t_1)f(\beta) \\
 &= \frac1{\beta^5}\lambda_0^{y_0+1}\lambda_1^{y_1+1}\exp(\lambda_0t_0 - \lambda_0t_1 -\frac{\lambda_0}\beta + \lambda_1t_1 - \frac{\lambda_1}\beta - \lambda_1t_2 - \frac1\beta)\mathrm{1}_{[t_0,t_2]}(t_1)
 \end{align*}
-$$
+
 
 ## 3
 
@@ -285,7 +284,7 @@ where again
 and we calculate ratios in log-scale.
 
 
-```{r A4}
+```{r A7}
 # From data
 t0 = coal[1]
 t2 = coal[length(coal)]
@@ -507,13 +506,13 @@ Therewith, the model shows the clear structure of a latent Gaussian model, since
 ### About the precision matrix
 
 In this paragraph, we show the form of the precision matrix which is derived from the RW2 ansatz. The part of interest in the exponent in the exponential, wherefore we only present those calculations here. In the second step those terms that allow to factor out $x_t$ are collected and mixed terms are split symmetrically.
-$$
+
 \begin{align*}
     \sum_{t=3}^T (x_t - 2x_{t-1} + x_{t-2})^2 & = \sum_{t=3}^T x_t^2 - 4x_t x_{t-1} + 2x_t x_{t-2} + 4x_{t-1}^2 - 4x_{t-1}x_{t-2} +x_{t-2} ^2\\
     &= x_1(x_1 - 2x_2 +x_3) + x_2(-2x_1 + 5x_2 -4x_3 +1 x_4) + \sum_{t=3}^{T-2} x_t(x_{t-2} -4 x_{t-1} + 6 x_t - 4 x_{t+1} + x_{t+2}) + \cdots \\
     &= \mathrm{x}^\top \mathrm{Q} \mathrm{x}
 \end{align*}
-$$
+
 
 where 
 $$
@@ -561,10 +560,10 @@ which is not in closed form such that direct sampling possible would be possible
 
 The full-conditionals are derived from the joint posterior be omitting factors that do not depend on the marginal variable and look like:
 
-$$
-\bullet\quad \pi(\theta|\mathrm{x},\mathrm{y}) \propto \theta^{\frac{T-2}2}\exp(-(\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)\theta) \propto Gamma(\frac{T}2,\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)\\
-\bullet\quad \pi(\mathrm{x}|\theta,\mathrm{y}) \propto \exp(-\frac12 (\mathrm{x}\mathrm{Q}(\theta)\mathrm{x}  -2\mathrm{y}^\top\mathrm{x} ) \propto \mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})
-$$
+
+- $\pi(\theta|\mathrm{x},\mathrm{y}) \propto \theta^{\frac{T-2}2}\exp(-(\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)\theta) \propto Gamma(\frac{T}2,\frac12 \mathrm{x}^\top\mathrm{Q}\mathrm{x}+1)$
+- $\pi(\mathrm{x}|\theta,\mathrm{y}) \propto \exp(-\frac12 (\mathrm{x}\mathrm{Q}(\theta)\mathrm{x}  -2\mathrm{y}^\top\mathrm{x} ) \propto \mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})$
+
 where the latter is the canoical form a Gaussian distribution. However, to be able to sample from it we have to find the covariance matrix $\mathrm{\Sigma}$ and mean vector $\mathrm{\mu}$, which are used in the form $\exp(-\frac12 (\mathrm{x}-\mathrm{\mu})^\top \mathrm{C}^{-1} (\mathrm{x}-\mathrm{\mu}))$. Note that we do not care about multiplicative constants that are independent of $x$. Then we find by expending the covariance-formulation and comparing to above's canoncical coefficients:
 
 - $\mathrm{\Sigma} = (\mathrm{Q}(\theta)+\mathrm{I})^{-1}$
@@ -600,6 +599,16 @@ for (i in 1:N){
 }
 
 #----------------------
+# Diagnostics
+
+plot(Theta[1:2000], type="l",
+     main="Traceplot for theta",
+     xlab="theta")
+plot(X[1:2000,10], type="l",
+     main="Traceplot for x10",
+     xlab="x10")
+
+#----------------------
 # Inference
 burnin = 1000
 
@@ -626,7 +635,7 @@ lines(Ts, Xquants[1,], lty=2)
 lines(Ts, Xquants[2,], lty=2)
 
 ```
-The histogram shows the posterior marginal for $\theta$ which is obtained by Gibbs MCMC. The plot shows again the observation data together with the linearly interpolated posterior means (solid line) and the 0.025 as well as 0.975 quantile (dashed line) from the Gibbs MCMC. We use 10.000 MCMC samples after a burn-in period of 1.000 steps - an inspection of the trace plots suggests that there is only a short burn-in phase. 
+The histogram shows the posterior marginal for $\theta$ which is obtained by Gibbs MCMC. The plot shows again the observation data together with the linearly interpolated posterior means (solid line) and the 0.025 as well as 0.975 quantile (dashed line) from the Gibbs MCMC. We use 10.000 MCMC samples after a burn-in period of 1.000 steps - an inspection of the trace plots suggests that there is only a very short burn-in phase and ignoring the first 1000 steps is more than enough. 
 
 
 ## 3. 
@@ -787,7 +796,7 @@ result$summary.hyperpar
 INLAtheta = inla.smarginal(result$marginals.hyperpar[[1]])
 
 plot(INLAtheta, type="l", col="red",
-     main="INLA approximation for hyper marginal",
+     main="R-INLA approximation for hyper marginal",
      xlab="theta", ylab="density",
      xlim=c(0,6))
 
@@ -802,7 +811,7 @@ plot(INLAx10, type="l", col="red",
 INLAx = result$summary.linear.predictor
 
 plot(Ts,y,
-     main="INLA inference for the latent field",
+     main="R-INLA inference for the latent field",
      xlab="t", ylab="value")
 lines(Ts, INLAx$mean, col="red")
 lines(Ts, INLAx$`0.025quant`, lty=2, col="red")
