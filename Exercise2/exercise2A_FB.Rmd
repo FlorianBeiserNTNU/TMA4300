@@ -79,7 +79,7 @@ We apply a single-site MCMC to sample from the posterior distribution
 - Update $\lambda_1$ by a Gibbs step
 - Propose a new $t^*$ using a normal distribution with variance $\sigma^2$ in a random walk MCMC
 
-The acceptance probability for the random walk step is $\alpha = \min(1,\frac{f(t^*|x,\theta_{-t})}{f(t|x,\theta_{-t})})$ where we calculate the latter quotient in log-scale.
+The acceptance probability for the random walk step is $\alpha = \min(1,\frac{f(\theta^*|x)}{f(\theta|x)}) =  \min(1,\frac{f(t^*|x,\theta_{-t})}{f(t|x,\theta_{-t})})$ where $\theta^*=(\beta,\lambda_0,\lambda_1,t_1^*)$ and where we calculate the latter quotient in log-scale.
 
 ```{r A4}
 library(invgamma)
@@ -119,11 +119,11 @@ MCMC <- function(N, sigma){
     Beta[i] = beta
     
     # Update lambda0
-    lambda0 = rgamma(1, shape=y0+1, rate=-(t0-t1-1/beta))
+    lambda0 = rgamma(1, shape=y0+2, rate=-(t0-t1-1/beta))
     Lambda0[i] = lambda0
     
     # Update lambda1 
-    lambda1 = rgamma(1, shape=y1+1, rate=-(t1-t2-1/beta))
+    lambda1 = rgamma(1, shape=y1+2, rate=-(t1-t2-1/beta))
     Lambda1[i] = lambda1
     
     # Propose t1
@@ -165,7 +165,7 @@ chains = MCMC(N, sigma)
 
 # Function:
 # generating traceplots for all parameters
-tracePlots <- function(chains){
+tracePlots <- function(chains, cutoff=length(chains$beta)){
   par(mfrow=c(2,2))
   # Single chains
   Beta = chains$beta
@@ -174,13 +174,13 @@ tracePlots <- function(chains){
   T1 = chains$t1
   
   plot(Beta, type="l", 
-      main="Traceplot for beta", xlab="beta")
+      main="Traceplot for beta", xlab="beta", xlim=c(1,cutoff))
   plot(Lambda0, type="l",
-       main="Traceplot for lambda0", xlab="lambda0")
+       main="Traceplot for lambda0", xlab="lambda0", xlim=c(1,cutoff))
   plot(Lambda1, type="l",
-       main="Traceplot for lambda1", xlab="lambda1")
+       main="Traceplot for lambda1", xlab="lambda1", xlim=c(1,cutoff))
   plot(T1, type="l",
-       main="Traceplot for t1", xlab="t1")
+       main="Traceplot for t1", xlab="t1", xlim=c(1,cutoff))
 }
 
 tracePlots(chains)
@@ -227,7 +227,7 @@ Moreover, the distribution make a lot of sense to us since we already guessed th
 
 ## 6 
 
-The random walk proposal step in the MCMC algorithms uses the tuning parameter $\sigma$ for the standard deviation in the normal distribution. 
+The random walk proposal step in the MCMC algorithms uses the tuning parameter $\sigma$ for the standard deviation in the normal distribution. Technically the initial states can also seen as tuning parameter, but we keep them constant here to be able to compare the burn-in period with respect to one parameter and avoiding Pareto-fronts which distract our attention from the core of the tuning.
 
 ```{r A6}
 
@@ -267,7 +267,198 @@ For too small choices of $\sigma$ the chain moves very slow, the space is explor
 
 ## 7 
 
+After the single-site MCMC algorithm, we draw our attention towards a block update within the MCMC routine. Every other MCMC iteration we use one of the following blocking strategies:
+
+1. Propose $t_1^*$ from a random walk proposal with standard deviation $\sigma_t$ and then propose $(\lambda_0^*,\lambda_1^*)$ from $f(\lambda_0,\lambda_1|x,t_1^*,\beta)$. Keep $\beta$ unchanged.
+2. Propose $\beta^*$ from a random walk proposal with standard deviation $\sigma_\beta$ and then propose $(\lambda_0^*,\lambda_1^*)$ from $f(\lambda_0,\lambda_1|x,t_1,\beta^*)$. Keep $t_1$ unchanged.
+
+Remember that $\lambda_i$ are jointly independent of each other by assumption, hence the joint distribution factorizes and we resamble the same Gamma distribution individually with the proposed $t_1^*$ in the parameters. The acceptance probabilities then become 
+
+1. $\alpha_1 = \min(1,\frac{f(\theta^*|x)}{f(\theta|x)}) =  \min(1,\frac{f(t^*,\lambda_0^*,\lambda_1^*|x,\beta)}{f(t,\lambda_0,\lambda_1|x,\beta)})$
+2. $\alpha_2 = \min(1,\frac{f(\theta^*|x)}{f(\theta|x)}) =  \min(1,\frac{f(\lambda_0^*,\lambda_1^*,\beta^*|x,t_1)}{f(\lambda_0,\lambda_1,\beta|x,t_1)})$
+
+where again 
+
+1. $f(t,\lambda_0,\lambda_1|x,\beta) = \lambda_0^{y_0+1} \lambda_1^{y_1+1} \exp(-\lambda_0(t_1-t_0)-\lambda_1(t_2-t_1)-\frac1\beta(\lambda_0+\lambda_1))$
+2. $f(\lambda_0,\lambda_1,\beta|x,t_1) = \frac1{\beta^5}\lambda_0^{y_0+1} \lambda_1^{y_1+1} \exp(-\lambda_0(t_1-t_0)-\lambda_1(t_2-t_1)-\frac1\beta(\lambda_0+\lambda_1+1))$
+
+and we calculate ratios in log-scale.
+
+
+```{r A4}
+# From data
+t0 = coal[1]
+t2 = coal[length(coal)]
+x = coal[-c(1,length(coal))]
+
+# MCMC
+# generating a chain by using aboves single site scheme
+
+# Arguments:
+# N: number of steps (including burn-in)
+# sigma: tuning parameter for the RW site
+
+blockMCMC <- function(N, sigma_t, sigma_b){
+  # Initialisation
+  beta = 0.1 
+  lambda0 = rgamma(1, shape=2, scale=beta)
+  lambda1 = rgamma(1, shape=2, scale=beta)
+  t1 = t0+(t2-t0)/2
+  
+  # Bookkeeping
+  T1 = rep(t1,N)
+  Beta = rep(beta,N)
+  Lambda0 = rep(lambda0,N)
+  Lambda1 = rep(lambda1,N)
+  
+  # MCMC Loop
+  for (i in 2:N){
+    
+    #############################
+    # block 1 
+    if (i%%2==0){
+      # split x 
+      y0 = length(x[x<t1])
+      y1 = length(x)-y0
+      
+      # Keep beta
+      Beta[i] = beta
+      
+      # Propose t1
+      t1_prop = min(max(t0,rnorm(1, mean=t1, sd=sigma_t)),t2)
+      y0_prop = length(x[x<t1_prop])
+      y1_prop = length(x)-y0_prop
+      
+      # Propose lambda0
+      lambda0_prop = rgamma(1, shape=y0_prop+2, rate=-(t0-t1_prop-1/beta))
+      
+      # Propose lambda1 
+      lambda1_prop = rgamma(1, shape=y1_prop+2, rate=-(t1_prop-t2-1/beta))
+      
+      # Evaluation of target densities
+      ldens_new = (y0_prop+1)*log(lambda0_prop) + (y1_prop+1)*log(lambda1_prop) 
+      ldens_new = ldens_new - lambda0_prop*(t1_prop-t0) - lambda1_prop*(t2-t1_prop)
+      ldens_new = ldens_new - (lambda0_prop+lambda1_prop)/beta
+      
+      ldens_old = (y0+1)*log(lambda0) + (y1+1)*log(lambda1) 
+      ldens_old = ldens_old - lambda0*(t1-t0) - lambda1*(t2-t1)
+      ldens_old = ldens_old - (lambda0+lambda1)/beta
+  
+      # Accetance or rejection of beta proposal
+      alpha = min(1,exp(ldens_new-ldens_old))
+      if (runif(1) < alpha) {
+        t1 = t1_prop
+        lambda0 = lambda0_prop
+        lambda1 = lambda1_prop
+      } 
+      # Storing new values
+      T1[i] = t1
+      Lambda0[i] = lambda0
+      Lambda1[i] = lambda1
+    }
+    
+    #############################
+    # Block 2
+    else{
+      # split x 
+      y0 = length(x[x<t1])
+      y1 = length(x)-y0
+      
+      # Keep t1
+      T1[i] = t1
+      
+      # Propose beta
+      beta_prop = max(1e-10, rnorm(1, mean=beta, sd=sigma_b))
+      
+      # Popose lambda0
+      lambda0_prop = rgamma(1, shape=y0+2, rate=-(t0-t1-1/beta_prop))
+      
+      # Propose lambda1 
+      lambda1_prop = rgamma(1, shape=y1+2, rate=-(t1-t2-1/beta_prop))
+      
+      # Evaluation of target densities
+      ldens_new = -5*log(beta_prop) + (y0+1)*log(lambda0_prop) + (y1+1)*log(lambda1_prop) 
+      ldens_new = ldens_new - lambda0_prop*(t1-t0) - lambda1_prop*(t2-t1)
+      ldens_new = ldens_new - (lambda0_prop+lambda1_prop+1)/beta_prop
+      
+      ldens_old = -5*log(beta) + (y0+1)*log(lambda0) + (y1+1)*log(lambda1) 
+      ldens_old = ldens_old - lambda0*(t1-t0) - lambda1*(t2-t1)
+      ldens_old = ldens_old - (lambda0+lambda1+1)/beta
+  
+      # Accetance or rejection of beta proposal
+      alpha = min(1,exp(ldens_new-ldens_old))
+      if (runif(1) < alpha) {
+        beta = beta_prop
+        lambda0 = lambda0_prop
+        lambda1 = lambda1_prop
+      } 
+      Beta[i] = beta
+      Lambda0[i] = lambda0
+      Lambda1[i] = lambda1
+    }
+  }
+  
+  return(list(t1=T1,lambda0=Lambda0,lambda1=Lambda1,beta=Beta))
+}
+
+```
+
 
 ## 8 
 
+Lastly, we run the block MCMC algorithm for different tuning parameters.
 
+```{r A8}
+# Running chains with different parameters
+chains1 = blockMCMC(20000, sigma_t=3.0, sigma_b=0.5)
+tracePlots(chains1, 2000)
+acfPlots(chains1)
+
+chains2 = blockMCMC(20000, sigma_t=3.0, sigma_b=1.0)
+tracePlots(chains2, 2000)
+acfPlots(chains2)
+
+chains3 = blockMCMC(20000, sigma_t=3.0, sigma_b=2.0)
+tracePlots(chains3, 2000)
+acfPlots(chains3)
+
+chains4 = blockMCMC(20000, sigma_t=3.0, sigma_b=5.0)
+tracePlots(chains4, 2000)
+acfPlots(chains4)
+
+# Calculating means
+burnin = 1000
+
+lambda0_mean = mean(chains3$lambda0[-c(1:burnin)])
+lambda1_mean = mean(chains3$lambda1[-c(1:burnin)])
+t1_mean = mean(chains3$t1[-c(1:burnin)])
+
+print(paste("The MCMC-mean of lambda0 is", lambda0_mean))
+print(paste("The MCMC-mean of lambda1 is", lambda1_mean))
+print(paste("The MCMC-mean of t1 is", t1_mean))
+
+# Calculatinf covariance
+lambda_cov = cov(chains3$lambda0[-c(1:burnin)],chains3$lambda1[-c(1:burnin)])
+
+print(paste("The MCMC-covariance of lambda0 with lambda1 is", lambda_cov))
+
+# Inspection of distributions
+hist(chains3$beta[-c(1:burnin)], freq=F, breaks=50,
+     main="beta distribtuion", 
+     xlab="beta")
+hist(chains3$lambda0[-c(1:burnin)], freq=F, breaks=50,
+     main="lambda0 distribtuion", 
+     xlab="lambda0")
+abline(v=lambda0_mean, col="red", lwd=2.5)
+hist(chains3$lambda1[-c(1:burnin)], freq=F, breaks=50,
+     main="lambda1 distribtuion", 
+     xlab="lambda1")
+abline(v=lambda1_mean, col="red", lwd=2.5)
+hist(chains3$t1[-c(1:burnin)], freq=F, breaks=50,
+     main="t1 distribtuion", 
+     xlab="t1", xlim=c(1880,1900))
+abline(v=t1_mean, col="red", lwd=2.5)
+
+```
+
+To better inspect the chain behaviour at the beginning we only inspect the traces of the first part, but all other plots involve the full-chain. Moreover, we keep $\sigma_t$ constant since we have analysed a similar (not same) situation previously. For small $\sigma_\beta$ we see that the burn-in is longer than for all others and for high $\sigma_\beta$ that the chain starts to pause. In general the mixing is worse than for the Gibbs sampler, which can be seen by the autocorrelation which is a way higher for lag greater than 10 as before. The marginals posteriors for $\lambda_i$ suggest a Gaussian shape and the one for $\beta$ shows skwedness. The mean values suggest that before 1891 a little more than 3 disasters happened wheras after only less than 1 per year. The values for $\lambda_i$ were assumed to be independent, but numerically they have a very small covariance, but we consider it as neglicable. 
