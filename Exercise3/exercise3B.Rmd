@@ -1,0 +1,12 @@
+---
+title: "exercise3"
+author: "Elsie Backen Tandberg, Maja Mathiassen, Florian Beiser"
+date: "23.04.2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem B
