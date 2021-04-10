@@ -30,35 +30,58 @@ beta_LA = betas$LA
 e_LS = ARp.resid(x, beta_LS)
 e_LA = ARp.resid(x, beta_LA)
 
-
-## Only for testing!!! >> 
-
-# Fitted responses (NOTE: the residuals got recentered and hence the responses do not match x )
-y_LS = ARp.filter(x[1:2], beta_LS, e_LS)
-y_LA = ARp.filter(x[1:2], beta_LS, e_LA)
-
-y_LS = ARp.filter(x[1:2], beta_LS, e_LS+(x[3]-y_LS[3]))
-y_LS = ARp.filter(x[1:2], beta_LS, e_LS+(x[3]-y_LS[3]))
-
-## << end 
-
 ```
 
 In order to compare both parameter estimators, the residual resampling bootstrap method is employed. Thereby, the variance and bias of both estimators is estimated. 
 
 ```{r 3Abootstrap}
+set.seed(2021)
 # Input
 B = 1500 # number of bootstrap samples
+T = 100  # length of time series
+p = 2
 
 # Bookkeeping
-bootstrap_betas_LS = matrix(0, ncol=2, nrow=B)
-bootstrap_betas_LA = matrix(0, ncol=2, nrow=B)
+bootstrap_betas_LS = matrix(0, ncol=p, nrow=B)
+bootstrap_betas_LA = matrix(0, ncol=p, nrow=B)
 
-# Bootstrapping
+# Bootstrapping for LS and LA in one (using same realisations)
 for (b in 1:B){
-  
-  
+  # Construct random but consecutive inital values
+  idx0 = sample(T-p+1, 1)
+  x0 = x[idx0:(idx0+p-1)]
+  # Resample residuals
+  idxs = sample(T-p, replace=TRUE)
+  e_LS_b = e_LS[idxs]
+  e_LA_b = e_LA[idxs]
+  # pseudo response
+  y_LS_b = ARp.filter(x0, beta_LS, e_LS_b)
+  y_LA_b = ARp.filter(x0, beta_LA, e_LA_b)
+  # bootstrap estimate
+  beta_LS_b = ARp.beta.est(y_LS_b, p)$LS
+  beta_LA_b = ARp.beta.est(y_LA_b, p)$LA
+  # Storing 
+  bootstrap_betas_LS[b,] = beta_LS_b
+  bootstrap_betas_LA[b,] = beta_LA_b
 }
 
+# Estimate for variances
+var_LS = var(bootstrap_betas_LS)
+print(paste("The variance for beta_1 in the LS estimator is ", var_LS[1,1]))
+print(paste("The variance for beta_2 in the LS estimator is ", var_LS[2,2]))
 
+var_LA = var(bootstrap_betas_LA)
+print(paste("The variance for beta_1 in the LA estimator is ", var_LA[1,1]))
+print(paste("The variance for beta_2 in the LA estimator is ", var_LA[2,2]))
+
+# Estimate for bias
+# NOTE: This assumes beta_LX as the true value but should be clarified!!!
+bias_LS = colMeans(bootstrap_betas_LS) - beta_LS
+print(paste("The bias for beta_1 in the LS estimator is ", bias_LS[1]))
+print(paste("The bias for beta_2 in the LS estimator is ", bias_LS[2]))
+
+bias_LA = colMeans(bootstrap_betas_LA) - beta_LA
+print(paste("The bias for beta_1 in the LA estimator is ", bias_LA[1]))
+print(paste("The bias for beta_2 in the LA estimator is ", bias_LA[2]))
 ```
+
