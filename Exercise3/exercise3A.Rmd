@@ -9,4 +9,56 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Problem A
+# Problem A: Comparing AR(2) parameter estimators using resampling of residuals
+
+Given a non-Gaussian time-series $(x_t)_{t=1}^T$ of length $T=100$, an AR(2) model is fitted to the data via least square and least absolute residuals, respectively, yielding two estimated parameters $\beta_1,\beta_2$ each. The respective residuals are recentered. (Note that there are no residuals for the first 2 time points.)
+
+```{r 3Asources}
+# The code requires that the extra files are downloaded from the course webpage and stored in the same folder as this Rmd
+source("probAhelp.R")
+source("probAdata.R")
+
+# Observed timeseries data
+x = data3A$x
+
+# Parameter estimates via LS and LA
+betas = ARp.beta.est(x, 2)
+beta_LS = betas$LS
+beta_LA = betas$LA
+
+# Re-centered residuals for LS and LA
+e_LS = ARp.resid(x, beta_LS)
+e_LA = ARp.resid(x, beta_LA)
+
+
+## Only for testing!!! >> 
+
+# Fitted responses (NOTE: the residuals got recentered and hence the responses do not match x )
+y_LS = ARp.filter(x[1:2], beta_LS, e_LS)
+y_LA = ARp.filter(x[1:2], beta_LS, e_LA)
+
+y_LS = ARp.filter(x[1:2], beta_LS, e_LS+(x[3]-y_LS[3]))
+y_LS = ARp.filter(x[1:2], beta_LS, e_LS+(x[3]-y_LS[3]))
+
+## << end 
+
+```
+
+In order to compare both parameter estimators, the residual resampling bootstrap method is employed. Thereby, the variance and bias of both estimators is estimated. 
+
+```{r 3Abootstrap}
+# Input
+B = 1500 # number of bootstrap samples
+
+# Bookkeeping
+bootstrap_betas_LS = matrix(0, ncol=2, nrow=B)
+bootstrap_betas_LA = matrix(0, ncol=2, nrow=B)
+
+# Bootstrapping
+for (b in 1:B){
+  
+  
+}
+
+
+```
