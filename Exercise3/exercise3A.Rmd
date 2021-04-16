@@ -45,6 +45,9 @@ p = 2
 bootstrap_betas_LS = matrix(0, ncol=p, nrow=B)
 bootstrap_betas_LA = matrix(0, ncol=p, nrow=B)
 
+bootstrap_es_LS = matrix(0, nrow=B, ncol=T-p)
+bootstrap_es_LA = matrix(0, nrow=B, ncol=T-p)
+
 # Bootstrapping for LS and LA in one (using same realisations)
 for (b in 1:B){
   # Construct random but consecutive inital values
@@ -55,14 +58,17 @@ for (b in 1:B){
   e_LS_b = e_LS[idxs]
   e_LA_b = e_LA[idxs]
   # pseudo response
-  y_LS_b = ARp.filter(x0, beta_LS, e_LS_b)
-  y_LA_b = ARp.filter(x0, beta_LA, e_LA_b)
+  x_LS_b = ARp.filter(x0, beta_LS, e_LS_b)
+  x_LA_b = ARp.filter(x0, beta_LA, e_LA_b)
   # bootstrap estimate
-  beta_LS_b = ARp.beta.est(y_LS_b, p)$LS
-  beta_LA_b = ARp.beta.est(y_LA_b, p)$LA
-  # Storing 
+  beta_LS_b = ARp.beta.est(x_LS_b, p)$LS
+  beta_LA_b = ARp.beta.est(x_LA_b, p)$LA
+  # Storing beta estimate
   bootstrap_betas_LS[b,] = beta_LS_b
   bootstrap_betas_LA[b,] = beta_LA_b
+  # Storing residuals for part 2
+  bootstrap_es_LS[b,] = ARp.resid(x, beta_LS_b)
+  bootstrap_es_LA[b,] = ARp.resid(x, beta_LA_b)
 }
 
 # Estimate for variances
@@ -85,3 +91,23 @@ print(paste("The bias for beta_1 in the LA estimator is ", bias_LA[1]))
 print(paste("The bias for beta_2 in the LA estimator is ", bias_LA[2]))
 ```
 
+```{r 3B}
+# Bookkeeping
+x101_LS = matrix(0, nrow=B)
+x101_LA = matrix(0, nrow=B)
+
+# Predicting x_101 for each bootstrap sample:
+# x101 = b1*x100 + b2*x99 + e101
+# where for b the estimates from part 1 are used
+# and e101 is resampled from its empirical distribution
+for (b in 1:B){
+  x101_LS[b] = bootstrap_betas_LS[b,1]*x[100] + bootstrap_betas_LS[b,2]*x[99] + sample(bootstrap_es_LS[b,],1)
+  x101_LA[b] = bootstrap_betas_LA[b,1]*x[100] + bootstrap_betas_LA[b,2]*x[99] + sample(bootstrap_es_LA[b,],1)
+}
+
+pred_interval_LS = quantile(x101_LS, probs=c(0.025,0.975))
+pred_interval_LA = quantile(x101_LA, probs=c(0.025,0.975))
+
+print(paste("The 95% prediction interval for LS is [",pred_interval_LS[1],",",pred_interval_LS[2],"]"))
+print(paste("The 95% prediction interval for LA is [",pred_interval_LA[1],",",pred_interval_LA[2],"]"))
+```
