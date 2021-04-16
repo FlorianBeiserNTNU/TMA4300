@@ -1,0 +1,151 @@
+---
+title: "exercise3"
+author: "Elsie Backen Tandberg, Maja Mathiassen, Florian Beiser"
+date: "23.04.2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+# Problem B
+
+```{r}
+bilirubin <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/bilirubin.txt",header=T)
+bilirubin
+
+```
+## B1
+```{r}
+#Finding the boxplot 
+boxplot(log(meas)~pers, data=bilirubin)
+```
+
+
+```{r}
+#Fitting a linear model to the data
+mod <- lm(log(meas)~pers, data=bilirubin)
+#Finding the F-statistic
+summ <- summary(mod)
+#Saving the value of the F statistic as Fval
+Fval <- summ$fstatistic[1]
+#Calculating the quantlie function
+qf(0.95, 2, 26)
+```
+
+We will use the F-test to test the hypothesis that 
+$$
+H_0: \beta_1=\beta_2=\beta_3 \quad \text{vs}\quad H_1:\text{at least one is different.}
+$$
+
+
+The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
+
+## B2
+Now we will write a function that generates a permutation of the data between the three individuals. 
+```{r}
+permTest <- function(){
+  #Generating one permutation of the dataset
+  perm <- data.frame(meas=sample(bilirubin$meas, 29), pers=bilirubin$pers)
+  #Fitting a linear model to the data
+  mod <- lm(log(meas)~pers, data=perm)
+  #Finding the F-statistic
+  summ <- summary(mod)
+  #Saving the value of the F statistic as Fval
+  Fval <- summ$fstatistic[1]
+  return(Fval)
+}
+```
+
+## B3
+We will generate 999 samples of the F-value by using the permutations calculated by the function permTest from B2. Theese samples will be used to find the p-value by counting the number of observations that are greater than the F-value found in B1. This p-value will be used to evaluate the same hypothesis test as in B1, with significance level $\alpha=0.05$.
+```{r}
+#Generating 999 samples of the F-value from the permTest function
+samples <- rep(0,999)
+for(i in 1:999){
+  samples[i] <- permTest()
+}
+#Finding the p-value
+pval <- sum(samples > Fval)/999
+```
+We found our p-value to be `r pval`, this is lower than our significance level, meaning that we reject $H_0$. So the same conclusion as in B1 is reached, where we believe that the three individuals have a differing concentration of bilirubin in their blood.
+
+
+# Problem C
+Here we will consider $x_1, ..., x_2$
+
+
+```{r}
+u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=T)
+z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=T)
+```
+
+The log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$.
+
+$$
+\begin{aligned}
+L(x,y)&=\prod_{i=1}^n \lambda_0 e^{-\lambda_0x_i}\lambda_1 e^{-\lambda_1y_i}\\
+l(x,y)&= n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n x_i-\lambda_1\sum_{i=1}^n y_i.
+\end{aligned}
+$$
+$$
+E[\log(f(\bf{x}, {y}|\lambda_0, \lambda_1))|z, u, \lambda_0^{(t)}, \lambda_1^{(t)})]=n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n E(x_i)-\lambda_1\sum_{i=1}^n E(y_i)
+$$
+$$
+\begin{aligned}
+E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))=\begin{cases}
+z_i u_i && u_i=1\\
+\frac{\lambda_0e^{-\lambda_0 x_i}}{\int_0^{z_i}\lambda_0e^{-\lambda_0 x_i}dx_i} &&
+u_i=0\\\end{cases}
+\end{aligned}
+$$
+
+
+```{r}
+#EM algorithm 
+EM.algorihtm <- function(lam0, lam1){
+  lam0i <- lam0
+  lam1i <- lam1
+  n<-length(u)
+  diff <- 1
+  lambda0.list <- c(lam0i)
+  lambda1.list <- c(lam1i)
+  
+  while(diff>1e-1){
+    lamvec <- c(lam0i, lam1i)
+    #Expectation step
+    #sum0 <- sum(u*z+(1-u)*(1/lam0i-z/(exp(lam0i*z)-1)))
+    #sum1 <- sum((1-u)*z+u*(1/lam1i-z/(exp(lam1i*z)-1)))
+    #Q <- n*(log(lam0i)+log(lam1i))-lam0i*sum0-lam1i*sum1
+    
+    sum0 <- 0
+    sum1 <- 0
+    for(k in 1:n){
+      sum0 <- sum0+u[k]*z[k]+(1-u[k])*(1/lam0i-z[k]/(exp(lam0i*z[k])-1))
+      sum1 <- sum1+((1-u[k])*z[k]+u[k]*(1/lam1i-z[k]/(exp(lam1i*z[k])-1)))
+    }
+    
+    #Maximization step
+    lam0i <- n/sum0
+    lam1i <- n/sum1
+    
+    #Convergence criteria
+    diff <- norm(as.matrix(lamvec[1]-lam0i, lamvec[2]-lam1i))
+    
+    lambda0.list <- c(lambda0.list, lam0i)
+    lambda1.list <- c(lambda1.list, lam1i)
+  }
+  return(cbind(c(lambda0.list), c(lambda1.list)))
+}
+
+em<-EM.algorihtm(1,1)
+em
+x <- seq(1:4)
+ggplot()+
+  geom_point(aes(x=x, y=em[,1]))
+
+
+```
+
