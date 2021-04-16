@@ -78,8 +78,8 @@ Here we will consider $x_1, ..., x_2$
 
 
 ```{r}
-u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=T)
-z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=T)
+u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=F)
+z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=F)
 ```
 
 The log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$.
@@ -108,43 +108,44 @@ $$
 EM.algorihtm <- function(lam0, lam1){
   lam0i <- lam0
   lam1i <- lam1
-  n<-length(u)
+  n<-length(u$V1)
   diff <- 1
   lambda0.list <- c(lam0i)
   lambda1.list <- c(lam1i)
   
-  while(diff>1e-1){
+  while(diff>1e-10){
     lamvec <- c(lam0i, lam1i)
     #Expectation step
-    #sum0 <- sum(u*z+(1-u)*(1/lam0i-z/(exp(lam0i*z)-1)))
-    #sum1 <- sum((1-u)*z+u*(1/lam1i-z/(exp(lam1i*z)-1)))
+    sum0 <- sum(u$V1*z$V1+(1-u$V1)*(1/lam0i-z$V1/(exp(lam0i*z$V1)-1)))
+    sum1 <- sum((1-u$V1)*z$V1+u$V1*(1/lam1i-z$V1/(exp(lam1i*z$V1)-1)))
     #Q <- n*(log(lam0i)+log(lam1i))-lam0i*sum0-lam1i*sum1
     
-    sum0 <- 0
-    sum1 <- 0
-    for(k in 1:n){
-      sum0 <- sum0+u[k]*z[k]+(1-u[k])*(1/lam0i-z[k]/(exp(lam0i*z[k])-1))
-      sum1 <- sum1+((1-u[k])*z[k]+u[k]*(1/lam1i-z[k]/(exp(lam1i*z[k])-1)))
-    }
     
     #Maximization step
     lam0i <- n/sum0
     lam1i <- n/sum1
     
-    #Convergence criteria
-    diff <- norm(as.matrix(lamvec[1]-lam0i, lamvec[2]-lam1i))
-    
+    #Storing the lambda values
     lambda0.list <- c(lambda0.list, lam0i)
     lambda1.list <- c(lambda1.list, lam1i)
+    
+    #Convergence criteria
+    diff <- norm(cbind(lamvec[1]-lam0i, lamvec[2]-lam1i), type="2")
+    
   }
+  #print(lambda0.list)
   return(cbind(c(lambda0.list), c(lambda1.list)))
 }
 
-em<-EM.algorihtm(1,1)
+em<-EM.algorihtm(0.5,0.5)
 em
-x <- seq(1:4)
+length(u$V1)
+u$V1[1]
+x <- seq(1:length(em[,1]))
 ggplot()+
-  geom_point(aes(x=x, y=em[,1]))
+  geom_point(aes(x=x, y=em[,1], color="lambda0"))+
+  geom_point(aes(x=x, y=em[,2], color="lambda1"))  +  xlab('Iterations') + ylab(expression(lambda))  
+
 
 
 ```
