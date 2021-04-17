@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Problem A: Comparing AR(2) parameter estimators using resampling of residuals
 
-Given a non-Gaussian time-series $(x_t)_{t=1}^T$ of length $T=100$, an AR(2) model is fitted to the data via least square and least absolute residuals, respectively, yielding two estimated parameters $\beta_1,\beta_2$ each. 
+Given a non-Gaussian time-series $\mathrm{x}=(x_t)_{t=1}^T$ of length $T=100$, an AR(2) model is fitted to the data via least square and least absolute residuals, respectively, yielding two estimated parameters $\beta_1,\beta_2$ each. 
 
 The AR(2) model is specified by the relatrion 
 \begin{equation*}
@@ -23,14 +23,14 @@ The least sum of squared residual method (LS) estimates the two parameters of th
 \begin{equation*}
 Q_{LS}(\beta_1, \beta_2|x) = \sum_{t=3}^T(x_t - \beta_1x_{t-1} - \beta_2 x_{t-2})^2
 \end{equation*}
-and minimizing $Q_{LS}$ with resprect to $\beta_1, \beta_2$, resulting in a parameter estimate $\hat{\beta}_{LS}=(\hat{\beta}_{1,LS},\hat{\beta}_{2,LS})$. 
+and minimizing $Q_{LS}$ with resprect to $\beta_1, \beta_2$, resulting in a parameter estimate $\hat{\beta}_{LS}(\mathrm{x})=(\hat{\beta}_{1,LS},\hat{\beta}_{2,LS})$. 
 In contrast, the least sum of absolute residual method (LA) using the loss function 
 \begin{equation*}
 Q_{LA}(\beta_1, \beta_2|x) = \sum_{t=3}^T|x_t - \beta_1x_{t-1} - \beta_2 x_{t-2}|
 \end{equation*}
-and the minimizing arguments of $Q_{LA}$ are denoted as the parameter estimate $\hat{\beta}_{LA}=(\hat{\beta}_{1,LA},\hat{\beta}_{2,LS})$. 
+and the minimizing arguments of $Q_{LA}$ are denoted as the parameter estimate $\hat{\beta}_{LA}(\mathrm{x})=(\hat{\beta}_{1,LA},\hat{\beta}_{2,LS})$. 
 
-The respective estimated residuals $\hat{e}=(x_t -\hat{\beta}_1 x_{t-1}- \hat{\beta}_ x_{t-2})_{t=3}^T$ are recentered. (Note that there are no residuals for the first 2 time points.)
+The respective estimated residuals $\hat{e}=(x_t -\hat{\beta}_1 x_{t-1} - \hat{\beta}_2 x_{t-2}) _{t=3}^T$ are re-centered. (Note that there are no residuals for the first 2 time points.)
 
 ```{r 3Asources}
 # The code requires that the extra files are downloaded from the course webpage and stored in the same folder as this Rmd
@@ -58,8 +58,9 @@ We use the residual resampling bootstrap method with $B=1500$ bootstrap samples 
 
 Based on those bootstrap samples the variance and bias of the LS and LA methods are estimated, respectively. 
 
-TODO: Describe method!
+Those bootstrap samples $(\mathrm{x}^b)_{b=1}^B$ can be interpreted as samples from the empirical distribution function of the observed data. The variance is then estimated by $\hat{Var}(\hat{\beta}) = \frac1{B-1}\sum_{b=1}^B(\hat{\beta}(\mathrm{x}^b)-\bar{\beta})$ where $\bar{\beta}=\frac1B\sum_{b=1}^B\hat{\beta}(\mathrm{x}^b)$ is the empirical mean. Note that $\hat{\beta}$ is the exact value for the empirical distribution function of the observed timeseries, wherewith the bias is calculated as $\hat{bias}(\hat{\beta})=\bar{\beta}-\hat{\beta}$. We take these formulas for each of the two components of $\beta$ separately. 
 
+(Remark: For every pseudo-timeseries and its estimated parameters we  extract the corresponding residual distribution to use in part 2.)
 
 ```{r 3Abootstrap}
 set.seed(2021)
@@ -123,7 +124,11 @@ For Gaussian AR(p) processes the LS estimator is optimal, but remember that the 
 
 ## 2: Predicion Interval based on bootstrapping
 
-TODO: Describe exercise
+We use the previous bootstrap samples to build a prediction interval for $t=101$ for LS and LA, respectively. Therefore, we extend the observed timeseries $(x_t)_{t=1}^T$ utilizing the AR(2) by 
+\begin{equation*}
+x_{101}^b = \beta_1^b x_{100} + \beta_2^b x_{99} + e_t^b
+\end{equation*}
+where we plug in the previous bootstrap estimates for $\beta^b$ and draw $e_t^b$ from the residual distribution corresponding to the pseudo timeseries $\mathrm{x}^b$ and its parameter estimate. The predicion quantile is calculated from the quantiles of this sample set. 
 
 ```{r 3B}
 # Bookkeeping
@@ -147,3 +152,5 @@ print(paste("The 95% prediction interval for LA is [",pred_interval_LA[1],",",pr
 ```
 
 The 95% prediction intervall is for both estimators rather broad. The upper interval ends is comparable but the lower end of LS is remarkably greater than the one of LA, such that the LS intervall is a bit smaller in the end. 
+
+
