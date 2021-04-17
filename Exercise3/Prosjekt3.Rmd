@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
+library(MASS)
 ```
 
 # Problem B
@@ -74,15 +75,10 @@ We found our p-value to be `r pval`, this is lower than our significance level, 
 
 
 # Problem C
-Here we will consider $x_1, ..., x_2$
+Here we consider $x_1, ..., x_n$ and  $y_1, ..., y_n$ which are exponential distributed independent random variables with with intensity $\lambda_0$ and $\lambda_1$ respectively. We do not observe $x_1, ..., x_n$ and  $y_1, ..., y_n$ directly, instead we observe $z_i=\max(x_i, y_i)$ for $i=1,...,n$, and $u_i=I(x_i\ge y_i)$ for $i=1,...,n$. Here $I(A)=1$ if $A$ is true, and $0$ otherwise. Based on the observations $(z_i, u_i)$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$.
 
-
-```{r}
-u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=F)
-z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=F)
-```
-
-The log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$.
+## C1
+First the log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$ is found.
 
 $$
 \begin{aligned}
@@ -90,17 +86,70 @@ L(x,y)&=\prod_{i=1}^n \lambda_0 e^{-\lambda_0x_i}\lambda_1 e^{-\lambda_1y_i}\\
 l(x,y)&= n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n x_i-\lambda_1\sum_{i=1}^n y_i.
 \end{aligned}
 $$
+Further we are interested in the expectation of the log likelihood
 $$
-E[\log(f(\bf{x}, {y}|\lambda_0, \lambda_1))|z, u, \lambda_0^{(t)}, \lambda_1^{(t)})]=n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n E(x_i)-\lambda_1\sum_{i=1}^n E(y_i)
+E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})]=n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})-\lambda_1\sum_{i=1}^n E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}).
 $$
+The expressions for $E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ and $E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ are dependent on which of the variables $(x_i, y_i)$ we have observed. So the pdf´s $f((x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ and $f((y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ can be written as two split equations depending on the value of $u_i$.
+
 $$
 \begin{aligned}
-E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))=\begin{cases}
-z_i u_i && u_i=1\\
-\frac{\lambda_0e^{-\lambda_0 x_i}}{\int_0^{z_i}\lambda_0e^{-\lambda_0 x_i}dx_i} &&
-u_i=0\\\end{cases}
+f(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})&=\begin{cases}
+z_i & u_i=1\\
+\frac{f(z_i|x_i)f(x_i)}{f(z_i)} & u_i=0\\
+\end{cases}\\
+&=\begin{cases}z_i & u_i=1\\
+\frac{\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}}{\int_0^{z_i}\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i}& u_i=0\\
+\end{cases}\\
+&=\begin{cases}z_i & u_i=1\\
+\frac{\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}}{1-e^{-\lambda_0^{(t)}z_i}}& u_i=0\\
+\end{cases}
 \end{aligned}
 $$
+
+
+$$
+E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=z_iu_i+(1-u_i)\frac{\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i}{1-e^{-\lambda_0^{(t)}x_i}}
+$$
+
+The integral $\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i$ is found by integration by parts.
+
+$$
+\begin{aligned}
+\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i&=-x_ie^{\lambda_0^{(t)}x_i}\bigg|_0^{z_i}-\int_0^{z_i}-e^{-\lambda_0^{(t)}x_i}dx_i\\
+&=-z_ie^{\lambda_0^{(t)}z_i}-\bigg[\frac{1}{\lambda_0}e^{-\lambda_0^{(t)}x_i}\bigg]_0^{z_i}\\
+&=\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}
+\end{aligned}
+$$
+Inserting this into the expression for the expectation we get the following equation
+$$
+E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=z_iu_i+(1-u_i)\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)
+$$
+The same calculations are done to find $E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$
+
+$$
+E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=(1-u_i)z_i+u_i\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)
+$$
+
+Combining the exressions for the expecatation leads to the following equation
+
+$$
+\begin{aligned}
+E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})]&=n(\log(\lambda_0)+\log(\lambda_1))\\
+&-\lambda_0\bigg[z_iu_i+(1-u_i)\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)\bigg]\\
+&-\lambda_1\bigg[(1-u_i)z_i+u_i\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)\bigg].
+\end{aligned}
+$$
+
+
+
+
+
+## C2
+```{r}
+u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=F)
+z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=F)
+```
 
 
 ```{r}
@@ -138,15 +187,10 @@ EM.algorihtm <- function(lam0, lam1){
 }
 
 em<-EM.algorihtm(0.5,0.5)
-em
-length(u$V1)
-u$V1[1]
+
 x <- seq(1:length(em[,1]))
 ggplot()+
   geom_point(aes(x=x, y=em[,1], color="lambda0"))+
   geom_point(aes(x=x, y=em[,2], color="lambda1"))  +  xlab('Iterations') + ylab(expression(lambda))  
-
-
-
 ```
 
