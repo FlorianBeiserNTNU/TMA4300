@@ -78,8 +78,10 @@ Here we will consider $x_1, ..., x_2$
 
 
 ```{r}
-u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=T)
-z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=T)
+u.df <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=F)
+z.df <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=F)
+u = u.df$V1
+z = z.df$V1
 ```
 
 The log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$.
@@ -113,7 +115,7 @@ EM.algorihtm <- function(lam0, lam1){
   lambda0.list <- c(lam0i)
   lambda1.list <- c(lam1i)
   
-  while(diff>1e-1){
+  while(diff>1e-5){
     lamvec <- c(lam0i, lam1i)
     #Expectation step
     #sum0 <- sum(u*z+(1-u)*(1/lam0i-z/(exp(lam0i*z)-1)))
@@ -122,10 +124,11 @@ EM.algorihtm <- function(lam0, lam1){
     
     sum0 <- 0
     sum1 <- 0
-    for(k in 1:n){
-      sum0 <- sum0+u[k]*z[k]+(1-u[k])*(1/lam0i-z[k]/(exp(lam0i*z[k])-1))
-      sum1 <- sum1+((1-u[k])*z[k]+u[k]*(1/lam1i-z[k]/(exp(lam1i*z[k])-1)))
-    }
+    #for(k in 1:n){
+      #sum0 <- sum0+u[k]*z[k]+(1-u[k])*(1/lam0i-z[k]/(exp(lam0i*z[k])-1))
+      #sum1 <- sum1+((1-u[k])*z[k]+u[k]*(1/lam1i-z[k]/(exp(lam1i*z[k])-1)))
+      #ifelse( u[k]==1, sum0 = sum0 + u[k]*z[k],  )
+    #}
     
     #Maximization step
     lam0i <- n/sum0
@@ -142,9 +145,9 @@ EM.algorihtm <- function(lam0, lam1){
 
 em<-EM.algorihtm(1,1)
 em
-x <- seq(1:4)
-ggplot()+
-  geom_point(aes(x=x, y=em[,1]))
+#x <- seq(1:4)
+#ggplot()+
+#  geom_point(aes(x=x, y=em[,1]))
 
 
 ```
