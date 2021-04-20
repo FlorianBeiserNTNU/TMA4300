@@ -1,0 +1,261 @@
+---
+title: "exercise3"
+author: "Elsie Backen Tandberg, Maja Mathiassen, Florian Beiser"
+date: "23.04.2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(MASS)
+```
+
+# Problem B
+
+```{r}
+bilirubin <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/bilirubin.txt",header=T)
+bilirubin
+
+```
+
+## B1
+```{r}
+#Finding the boxplot 
+boxplot(log(meas)~pers, data=bilirubin)
+```
+
+
+```{r}
+#Fitting a linear model to the data
+mod <- lm(log(meas)~pers, data=bilirubin)
+#Finding the F-statistic
+summ <- summary(mod)
+#Saving the value of the F statistic as Fval
+Fval <- summ$fstatistic[1]
+#Calculating the quantlie function
+qf(0.95, 2, 26)
+```
+
+We will use the F-test to test the hypothesis that 
+$$
+H_0: \beta_1=\beta_2=\beta_3 \quad \text{vs}\quad H_1:\text{at least one is different.}
+$$
+
+
+The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
+
+## B2
+Now we will write a function that generates a permutation of the data between the three individuals. 
+```{r}
+permTest <- function(){
+  #Generating one permutation of the dataset
+  perm <- data.frame(meas=sample(bilirubin$meas, 29), pers=bilirubin$pers)
+  #Fitting a linear model to the data
+  mod <- lm(log(meas)~pers, data=perm)
+  #Finding the F-statistic
+  summ <- summary(mod)
+  #Saving the value of the F statistic as Fval
+  Fval <- summ$fstatistic[1]
+  return(Fval)
+}
+```
+
+## B3
+We will generate 999 samples of the F-value by using the permutations calculated by the function permTest from B2. Theese samples will be used to find the p-value by counting the number of observations that are greater than the F-value found in B1. This p-value will be used to evaluate the same hypothesis test as in B1, with significance level $\alpha=0.05$.
+```{r}
+#Generating 999 samples of the F-value from the permTest function
+samples <- rep(0,999)
+for(i in 1:999){
+  samples[i] <- permTest()
+}
+#Finding the p-value
+pval <- sum(samples > Fval)/999
+```
+We found our p-value to be `r pval`, this is lower than our significance level, meaning that we reject $H_0$. So the same conclusion as in B1 is reached, where we believe that the three individuals have a differing concentration of bilirubin in their blood.
+
+
+# Problem C
+Here we consider $x_1, ..., x_n$ and  $y_1, ..., y_n$ which are exponential distributed independent random variables with with intensity $\lambda_0$ and $\lambda_1$ respectively. We do not observe $x_1, ..., x_n$ and  $y_1, ..., y_n$ directly, instead we observe $z_i=\max(x_i, y_i)$ for $i=1,...,n$, and $u_i=I(x_i\ge y_i)$ for $i=1,...,n$. Here $I(A)=1$ if $A$ is true, and $0$ otherwise. Based on the observations $(z_i, u_i)$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$.
+
+## C1
+First the log likelihood function for the complete data $(x_i, y_i)$, $i=1,...,n$ is found.
+
+$$
+\begin{aligned}
+L(x,y)&=\prod_{i=1}^n \lambda_0 e^{-\lambda_0x_i}\lambda_1 e^{-\lambda_1y_i}\\
+l(x,y)&= n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n x_i-\lambda_1\sum_{i=1}^n y_i.
+\end{aligned}
+$$
+Further we are interested in the expectation of the log likelihood
+$$
+E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})]=n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})-\lambda_1\sum_{i=1}^n E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}).
+$$
+The expressions for $E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ and $E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ are dependent on which of the variables $(x_i, y_i)$ we have observed. So the pdf´s $f((x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ and $f((y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ can be written as two split equations depending on the value of $u_i$.
+
+$$
+\begin{aligned}
+f(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})&=\begin{cases}
+z_i & u_i=1\\
+\frac{f(z_i|x_i)f(x_i)}{f(z_i)} & u_i=0\\
+\end{cases}\\
+&=\begin{cases}z_i & u_i=1\\
+\frac{\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}}{\int_0^{z_i}\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i}& u_i=0\\
+\end{cases}\\
+&=\begin{cases}z_i & u_i=1\\
+\frac{\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}}{1-e^{-\lambda_0^{(t)}z_i}}& u_i=0\\
+\end{cases}
+\end{aligned}
+$$
+
+
+$$
+E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=z_iu_i+(1-u_i)\frac{\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i}{1-e^{-\lambda_0^{(t)}x_i}}
+$$
+
+The integral $\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i$ is found by integration by parts.
+
+$$
+\begin{aligned}
+\int_0^{z_i}x_i\lambda_0^{(t)}e^{-\lambda_0^{(t)} x_i}dx_i&=-x_ie^{\lambda_0^{(t)}x_i}\bigg|_0^{z_i}-\int_0^{z_i}-e^{-\lambda_0^{(t)}x_i}dx_i\\
+&=-z_ie^{\lambda_0^{(t)}z_i}-\bigg[\frac{1}{\lambda_0}e^{-\lambda_0^{(t)}x_i}\bigg]_0^{z_i}\\
+&=\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}
+\end{aligned}
+$$
+Inserting this into the expression for the expectation we get the following equation
+$$
+E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=z_iu_i+(1-u_i)\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)
+$$
+The same calculations are done to find $E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$
+
+$$
+E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})=(1-u_i)z_i+u_i\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)
+$$
+
+Combining the exressions for the expecatation leads to the following equation
+
+$$
+\begin{aligned}
+E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})]&=n(\log(\lambda_0)+\log(\lambda_1))\\
+&-\lambda_0\bigg[z_iu_i+(1-u_i)\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)\bigg]\\
+&-\lambda_1\bigg[(1-u_i)z_i+u_i\bigg(\frac{1}{\lambda_0^{(t)}}-\frac{z_i}{e^{\lambda_0^{(t)}z_i}-1}\bigg)\bigg].
+\end{aligned}
+$$
+
+
+
+
+
+## C2
+```{r}
+u <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/u.txt",header=F)
+z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/z.txt",header=F)
+```
+
+
+```{r}
+#EM algorithm 
+EM.algorihtm <- function(lam0, lam1, u, z){
+  lam0i <- lam0
+  lam1i <- lam1
+  n<-length(u)
+  diff <- 1
+  lambda0.list <- c(lam0i)
+  lambda1.list <- c(lam1i)
+  
+  while(diff>1e-10){
+    lamvec <- c(lam0i, lam1i)
+    #Expectation step
+    sum0 <- sum(u*z+(1-u)*(1/lam0i-z/(exp(lam0i*z)-1)))
+    sum1 <- sum((1-u)*z+u*(1/lam1i-z/(exp(lam1i*z)-1)))
+    #Q <- n*(log(lam0i)+log(lam1i))-lam0i*sum0-lam1i*sum1
+    
+    #Maximization step
+    lam0i <- n/sum0
+    lam1i <- n/sum1
+    
+    #Storing the lambda values
+    lambda0.list <- c(lambda0.list, lam0i)
+    lambda1.list <- c(lambda1.list, lam1i)
+    
+    #Convergence criteria
+    diff <- norm(cbind(lamvec[1]-lam0i, lamvec[2]-lam1i), type="2")
+    
+  }
+  #print(lambda0.list)
+  return(cbind(c(lambda0.list), c(lambda1.list)))
+}
+
+em<-EM.algorihtm(0.5,0.4, u$V1, z$V1)
+theta_hat = em[length(em[,1]), ]
+theta_hat
+
+x <- seq(1:length(em[,1]))
+ggplot()+
+  geom_point(aes(x=x, y=em[,1], color="lambda0"))+
+  geom_point(aes(x=x, y=em[,2], color="lambda1"))  +  xlab('Iterations') + ylab(expression(lambda))  
+```
+
+
+
+
+``` {r}
+n <- 200
+B <- 1000
+df <- data.frame(u = u$V1, z = z$V1)
+bootstrap.lambda <- data.frame(lambda0 = rep(0, n), lambda1 = rep(0, n))
+
+for(i in 1:B) {
+  index <- sample(1:200, n, replace = TRUE)
+  bootstrap.sample <- df[index, ]
+  em <- EM.algorihtm(0.5, 0.5, bootstrap.sample[,1], bootstrap.sample[,2])
+  bootstrap.lambda[i,] <- em[length(em[,1]),]
+}
+
+mean <- colMeans(bootstrap.lambda)
+mean
+
+sd0 <- sqrt( 1/(B-1) * sum((bootstrap.lambda[,1] - mean[1])^2) )
+sd1 <- sqrt( 1/(B-1) * sum((bootstrap.lambda[,2] - mean[2])^2) )
+
+sd0
+sd1
+
+sd(bootstrap.lambda[,1])
+sd(bootstrap.lambda[,2])
+```
+
+
+
+```{r}
+l0 = theta_hat[1]
+l1 = theta_hat[2]
+u = u$V1
+z = z$V1
+```
+
+```{r}
+n = length(u)
+n0 = sum(u==0)
+n1 = n - n0
+n0; n1
+
+logLikelihood = function(par, u, z) {
+  summ = n0*log(par[2]) + n1*log(par[1])
+  summ = summ + sum( u*(log(1-exp(-par[2]*z)) - par[1]*z) + (1-u)*(log(1-exp(-par[1]*z)) - par[2]*z) )
+  return(-summ)
+}
+
+optim(par=c(2,2), fn=logLikelihood, u=u, z=z)$par
+```
+
+
+
+
+
+
+
+
+
+
+
