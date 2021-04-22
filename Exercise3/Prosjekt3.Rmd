@@ -357,7 +357,7 @@ ggplot()+
 Our estimates $\hat{\lambda_0}$= `r em1[length(em1[,1]),1]` and  $\hat{\lambda_1}$= `r em1[length(em1[,2]),2]`. 
 
 
-## 3: Bootstrapping 
+## 3: Bootstrapping  
 
 ```{r }
 #Boostrapping, finding 1000 values for lambdas
