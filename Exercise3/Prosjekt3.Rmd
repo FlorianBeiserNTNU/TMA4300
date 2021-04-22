@@ -1,5 +1,5 @@
 ---
-title: "exercise3"
+title: "TMA4300 Exercise 3"
 author: "Elsie Backen Tandberg, Maja Mathiassen, Florian Beiser"
 date: "23.04.2021"
 output: pdf_document
@@ -152,17 +152,16 @@ The 95% prediction intervall is for both estimators rather broad. The upper inte
 In this problem we look at the concentration of bilirubin (mg/dL) in blood samples from the young men and do a permutation test. 
 ```{r B-dataset}
 bilirubin <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-additionalFiles/bilirubin.txt",header=T)
-bilirubin
-
 ```
 
 ## 1: Regression model and hypothesis test
 First we use a box plot to look at the logarithm of the concentration for the three individuals.
-```{r}
-#Finding the boxplot 
+```{r, fig.cap="\\label{boxplot} Box plot to inspect the logarithms of the concentrations for each individual.",fig.width=6, fig.height=4}
+#Finding the box plot 
 boxplot(log(meas)~pers, data=bilirubin)
 ```
-From the plot we can see that person 1 and person 2 have a similar median, but that person 1 has higher variability. Person 3 has higher median than the others and also a high variability. 
+
+From the plot in Figure \ref{boxplot} we can see that person 1 and person 2 have a similar median, but that person 1 has higher variability. Person 3 has higher median than the others and also a high variability. 
 
 Next we fit a regression model 
 $$
@@ -311,7 +310,7 @@ z <- read.table("https://www.math.ntnu.no/emner/TMA4300/2020v/Exercise/ex3-addit
                 header=F)
 ```
 
-```{r C2-EM}
+```{r C2-EM, fig.cap="\\label{convergence} Convergence of $\\lambda_0$ and $\\lambda_1$.",fig.width=6, fig.height=4}
 #EM algorithm 
 EM.algorihtm <- function(lam0, lam1, u, z){
   lam0i <- lam0
@@ -354,13 +353,21 @@ ggplot()+
        x = "Iterations", y=expression(lambda))
 ```
 
-Our estimates $\hat{\lambda_0}$= `r em1[length(em1[,1]),1]` and  $\hat{\lambda_1}$= `r em1[length(em1[,2]),2]`. 
+From the convergence plot in Figure \ref{convergence} we see that the values for both $\lambda_0$ and $\lambda_1$ have converged. We choose the last generated values as our $\lambda$-estimates. Our estimates $\hat{\lambda_0}$= `r em1[length(em1[,1]),1]` and  $\hat{\lambda_1}$= `r em1[length(em1[,2]),2]`. 
 
 
 ## 3: Bootstrapping 
 
+- For i in number of iterations
+  - Draw n samples from our data, $(z,u)$, with replacement
+  - Run the EM-algorithm for the drawn sample
+  - Store the last generated lambda values in a data frame
+
+Using our estimated values for $\lambda_0$ and $\lambda_1$ from the bootstrap algorithm, we will calculate the mean, standard deviation and bias for $\hat{\lambda_0}$ and $\hat{\lambda_1}$. The standard deviation is calculated using $\sqrt{\frac{1}{B-1}\sum_{b=1}^B({\hat{\lambda}^*-\hat {E[\lambda^*]}})^2}$ and the bias is found by $\hat{E[\lambda^*]}-\hat \lambda$, $\hat \lambda$ is the value found in C2.
+
+
 ```{r }
-#Boostrapping, finding 1000 values for lambdas
+#Bootstrapping, finding 1000 values for lambdas
 u.z <- cbind("u"=u, "z"=z)
 lambdas <- data.frame(lambda0 = rep(0, 1000), lambda1 = rep(0, 1000))
 
@@ -378,24 +385,24 @@ mean.lambda1 <- means[2]
 
 #Calculating the standard deviation
 sd.lambda0 <- sqrt(1/(length(lambdas[,1])-1)*sum((lambdas[,1]-mean.lambda0)^2))
-
 sd.lambda1 <- sqrt(1/(length(lambdas[,2])-1)*sum((lambdas[,2]-mean.lambda1)^2))
 
-
+#Calculating the bias
 bias.lambda0 <- mean.lambda0-em1[length(em1[,1]),1]
 bias.lambda1 <- mean.lambda1-em1[length(em1[,1]),2]
-bias.lambda0
-bias.lambda1
 
-#bias.corr <- 
+#Calculating the correlation
 corr<-cor(lambdas[,1], lambdas[,2])
-
 ```
-We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`.
+
+
+We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`. Observing that the standard deviation is much larger than the biases we can assume that the bias might be due to noise. This means that we prefer the maximum likelihood estimate to the bias corrected estimate. In addition the correlation is very low meaning that the variables are independent, which is what was assumed initially.
+
 
 ## 4: Maximum likelihood estimators 
 
 We are interested in $f_{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)$. We first look at the situation where $u_i=1$ which means that $z_i=x_i$ and $x_i\ge y_i$.We find the cumulative distribution of $z_i$, $F_{z_i}$.
+
 $$
 \begin{aligned}
 F_{Z_i,U_i}(z_i,u_i=1|\lambda_0,\lambda_1)&=P(Z_i\le z_i, U_i=1)\\
@@ -405,6 +412,7 @@ F_{Z_i,U_i}(z_i,u_i=1|\lambda_0,\lambda_1)&=P(Z_i\le z_i, U_i=1)\\
 &=\int_0^{z_i}\lambda_0e^{-\lambda_0 x_i}(1-e^{-\lambda_1x_i})dx_i\\
 \end{aligned}
 $$
+
 We use the fundamental theorem of calculus
 
 $$
@@ -444,7 +452,7 @@ We are going to find analytic formulas for the maximum likelihood estimators $\l
 
 $$
 \begin{aligned}
-L(\lambda_0,\lambda_1)&=\prod_{i=1}^n{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)\\
+L(\lambda_0,\lambda_1)&=\prod_{i=1}^nf_{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)\\
 l(\lambda_0,\lambda_1)&=n_0\ln(\lambda_1)+n_1\ln(\lambda_0)+\sum_{i=1}^n \bigg[u_i(\ln(1-e^{-\lambda_1z_i})-{\lambda_0z_i})+(1-u_i)(\ln(1-e^{-\lambda_0z_i})-{\lambda_1 z_i}) \bigg]
 \end{aligned}
 $$
@@ -456,9 +464,11 @@ $$
 \frac{\partial l}{\partial \lambda_1}=\frac{n_0}{\lambda_1}+\sum_{i=1}^n\bigg[u_i\frac{z_ie^{-\lambda_1z_i}}{1-e^{-\lambda_1z_i}}-(1-u_i)z_i\bigg]=0\\
 $$
 
-We can not find an analytic solution for the maximum likelihood estimators for $\lambda_0$ and $\lambda_1$.
+We can not find an analytic solution for the maximum likelihood estimators for $\lambda_0$ and $\lambda_1$. Instead we will compute the values using the optim-function.
 
 ```{r}
+#Finding optimized values for the lambdas
+#Log likelihood function
 loglike <- function(lambdavec){
   n0 <- sum(u==0)
   n1 <- sum(u)
@@ -469,5 +479,11 @@ loglike <- function(lambdavec){
 }
 
 lambdavec <- c(0.5,0.5)
-optim(lambdavec,loglike)$par
+lambda0o <- optim(lambdavec,loglike)$par[1]
+lambda1o <- optim(lambdavec,loglike)$par[2]
 ```
+
+
+The optimized values are $\hat{\lambda_0}$=`r lambda0o` and $\hat{\lambda_1}$=`r lambda1o`. We see that they are close to the result obtained from the EM-algorithm. 
+
+The advantages of optimizing the likelihood directly compared to the EM algorithm is that the run time of the EM-algorithm depends on the initial values and therefore the run time might be slower than the optim-function. 
