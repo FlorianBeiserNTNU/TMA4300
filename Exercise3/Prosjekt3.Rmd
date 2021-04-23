@@ -176,7 +176,7 @@ mod <- lm(log(meas)~pers, data=bilirubin)
 summ <- summary(mod)
 #Saving the value of the F statistic as Fval
 Fval <- summ$fstatistic[1]
-#Calculating the quantlie function
+#Calculating the quantile function
 qf(0.95, 2, 26)
 ```
 
@@ -186,7 +186,7 @@ H_0: \beta_1=\beta_2=\beta_3 \quad \text{vs}\quad H_1:\text{at least one is diff
 $$
 
 
-The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
+The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `r Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
 
 ## 2: Permutation of data
 Now we will write a function that generates a permutation of the data between the three individuals. 
