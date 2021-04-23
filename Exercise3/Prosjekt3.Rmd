@@ -397,7 +397,7 @@ corr<-cor(lambdas[,1], lambdas[,2])
 ```
 
 
-We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`. Observing that the standard deviation is much larger than the biases we can assume that the bias might be due to noise. This means that we prefer the maximum likelihood estimate to the bias corrected estimate. In addition the correlation is very low meaning that the variables are independent.
+We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`. Observing that the standard deviation is much larger than the biases we can assume that the bias might be due to noise. This means that we prefer the maximum likelihood estimate to the bias corrected estimate. There is a low correlation between the estimators even though both estimates are calculated from the same data.
 
 
 ## 4: Maximum likelihood estimators 
