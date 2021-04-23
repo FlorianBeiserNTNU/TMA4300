@@ -397,12 +397,12 @@ corr<-cor(lambdas[,1], lambdas[,2])
 ```
 
 
-We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`. Observing that the standard deviation is much larger than the biases we can assume that the bias might be due to noise. This means that we prefer the maximum likelihood estimate to the bias corrected estimate. In addition the correlation is very low meaning that the variables are independent, which is what was assumed initially.
+We find that the means of the bootstrap samples are $E[\hat{\lambda_0}]$=`r mean.lambda0`, and $E[\hat{\lambda_1}]$=`r mean.lambda1`. The standard deviations are $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda0` and $\text{SD}[\hat{\lambda_0}]$=`r sd.lambda1`. The biases are bias$[\hat{\lambda_0}]$=`r bias.lambda0` and bias$[\hat{\lambda_1}]$=`r bias.lambda1`. Finally, $\text{Corr}[\hat{\lambda_0}, \hat{\lambda_1}]$=`r corr`. Observing that the standard deviation is much larger than the biases we can assume that the bias might be due to noise. This means that we prefer the maximum likelihood estimate to the bias corrected estimate. In addition the correlation is very low meaning that the variables are independent.
 
 
 ## 4: Maximum likelihood estimators 
 
-We are interested in $f_{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)$. We first look at the situation where $u_i=1$ which means that $z_i=x_i$ and $x_i\ge y_i$.We find the cumulative distribution of $z_i$, $F_{z_i}$.
+We are interested in $f_{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)$. We first look at the situation where $u_i=1$ which means that $z_i=x_i$ and $x_i\ge y_i$. We find the cumulative distribution of $z_i$, $F_{z_i}$.
 
 $$
 \begin{aligned}
@@ -449,7 +449,7 @@ f_{z_i,u_i}(z_i,u_i|\lambda_0,\lambda_1)=\begin{cases}\lambda_0e^{-\lambda_0 z_i
 \lambda_1(1-e^{-\lambda_0z_i})e^{-\lambda_1z_i}\quad u_i=0
 \end{cases}
 $$
-We are going to find analytic formulas for the maximum likelihood estimators $\lambda_0$ and $\lambda_1$.
+We are going to find analytic formulas for the maximum likelihood estimators $\hat\lambda_0$ and $\hat\lambda_1$.
 
 $$
 \begin{aligned}
@@ -480,11 +480,16 @@ loglike <- function(lambdavec){
 }
 
 lambdavec <- c(0.5,0.5)
-lambda0o <- optim(lambdavec,loglike)$par[1]
-lambda1o <- optim(lambdavec,loglike)$par[2]
+opt = optim(lambdavec, loglike, hessian=TRUE)
+lambda0o <- opt$par[1]
+lambda1o <- opt$par[2]
+H<-opt$hessian
+Hinv<-solve(H)
+Hsq<-sqrt(diag(Hinv))
+sd_est<-diag(Hsq)
 ```
 
 
 The optimized values are $\hat{\lambda_0}$=`r lambda0o` and $\hat{\lambda_1}$=`r lambda1o`. We see that they are close to the result obtained from the EM-algorithm. 
 
-The advantages of optimizing the likelihood directly compared to the EM algorithm is that the run time of the EM-algorithm depends on the initial values and therefore the run time might be slower than the optim-function. 
+The advantages of optimizing the likelihood directly compared to the EM algorithm is that the run time of the EM-algorithm depends on the initial values and therefore the run time might be slower than the optim-function. Additionally, the optim-function can find the Hessian for you, which can be used to estimate the standard deviation of $\hat\lambda_0$ and $\hat\lambda_1$. Then we get $\text{SD}[\hat{\lambda_0}]$=`r sd_est[1,1]` and $\text{SD}[\hat{\lambda_0}]$=`r sd_est[2,2]`.
