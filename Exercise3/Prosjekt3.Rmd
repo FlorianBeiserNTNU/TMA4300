@@ -15,11 +15,11 @@ library(MASS)
 
 Given a non-Gaussian time-series $\mathrm{x}=(x_t)_{t=1}^T$ of length $T=100$, an AR(2) model is fitted to the data via least square and least absolute residuals, respectively, yielding two estimated parameters $\beta_1,\beta_2$ each. 
 
-The AR(2) model is specified by the relatrion 
+The AR(2) model is specified by the relation 
 \begin{equation*}
 x_t = \beta_1 x_{t-1} + \beta_2 x_{t-2} + e_t
 \end{equation*}
-where $e_t$ is some iid noice with zero mean and constant variance.
+where $e_t$ is some iid noise with zero mean and constant variance.
 
 The least sum of squared residual method (LS) estimates the two parameters of the AR(2) model (note that the parameters are independent of time) using the loss function 
 \begin{equation*}
@@ -114,7 +114,7 @@ print(paste("The bias for beta_2 in the LA estimator is ", bias_LA[2]))
 For Gaussian AR(p) processes the LS estimator is optimal, but remember that the given process is non-Gaussian. Hereon the latest results, we observe that the LS estimator is no longer optimal for this problem since the LA estimator has smaller variance together with a smaller absolute bias! Hence, the LA is the preferable (better) estimator for the given problem.
 
 
-## 2: Predicion Interval based on bootstrapping
+## 2: Predicion i based on bootstrapping
 
 We use the previous bootstrap samples to build a prediction interval for $t=101$ for LS and LA, respectively. Therefore, we extend the observed timeseries $(x_t)_{t=1}^T$ utilizing the AR(2) by 
 \begin{equation*}
@@ -143,7 +143,7 @@ print(paste("The 95% prediction interval for LS is [",pred_interval_LS[1],",",pr
 print(paste("The 95% prediction interval for LA is [",pred_interval_LA[1],",",pred_interval_LA[2],"]"))
 ```
 
-The 95% prediction intervall is for both estimators rather broad. The upper interval ends are both a bit above 23.0, but the lower end of LS is remarkably smaller (<7.5) than the one of LA (>10.0), such that the LA prediction intervall is a way smaller in the end. (Of course the estimate for the quantile values is quite dependent on the chosen seed due to a relatively small sample size for estimating a 2.5% or 97.5% quantile.)
+The 95% prediction interval is for both estimators rather broad. The upper interval ends are both a bit above 23.0, but the lower end of LS is remarkably smaller (<7.5) than the one of LA (>10.0), such that the LA prediction interval is a way smaller in the end. (Of course the estimate for the quantile values is quite dependent on the chosen seed due to a relatively small sample size for estimating a 2.5% or 97.5% quantile.)
 
 
 # Problem B: Permutation Test
@@ -174,7 +174,7 @@ mod <- lm(log(meas)~pers, data=bilirubin)
 summ <- summary(mod)
 #Saving the value of the F statistic as Fval
 Fval <- summ$fstatistic[1]
-#Calculating the quantlie function
+#Calculating the quantile function
 qf(0.95, 2, 26)
 ```
 
@@ -184,7 +184,7 @@ H_0: \beta_1=\beta_2=\beta_3 \quad \text{vs}\quad H_1:\text{at least one is diff
 $$
 
 
-The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
+The F-statistic was found from the summary of the fitted linear model. $H_0$ is rejected if the F-statistic = `r Fval` is higher than `r qf(0.95, 2, 26)`. We see that this is true, so we reject $H_0$, concluding that there at least one of the $\beta$'s differ from the others.
 
 ## 2: Permutation of data
 Now we will write a function that generates a permutation of the data between the three individuals. 
@@ -230,7 +230,10 @@ l(x,y)&= n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n x_i-\lambda_1\
 $$
 Further we are interested in the expectation of the log likelihood
 $$
-E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})]=n(\log(\lambda_0)+\log(\lambda_1))-\lambda_0\sum_{i=1}^n E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})-\lambda_1\sum_{i=1}^n E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}).
+\begin{aligned}
+E[\log(f(\mathbf{x}, \mathbf{y}|\lambda_0, \lambda_1))|\mathbf{z}, \mathbf{u}, \lambda_0^{(t)}, \lambda_1^{(t)})] &= n(\log(\lambda_0)+\log(\lambda_1)) \\
+&-\lambda_0\sum_{i=1}^n E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})-\lambda_1\sum_{i=1}^n E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}).
+\end{aligned}
 $$
 The expressions for $E(x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ and $E(y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)})$ are dependent on which of the variables $(x_i, y_i)$ we have observed. So the pdf´s $f((x_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ and $f((y_i|z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}))$ can be written as two split equations depending on the value of $u_i$.
 
@@ -354,7 +357,7 @@ ggplot()+
 From the convergence plot in Figure \ref{convergence} we see that the values for both $\lambda_0$ and $\lambda_1$ have converged. We choose the last generated values as our $\lambda$-estimates. Our estimates $\hat{\lambda_0}$= `r em1[length(em1[,1]),1]` and  $\hat{\lambda_1}$= `r em1[length(em1[,2]),2]`. 
 
 
-## 3: Bootstrapping 
+## 3: Bootstrapping  
 
 - For i in number of iterations
   - Draw n samples from our data, $(z,u)$, with replacement
@@ -455,7 +458,7 @@ l(\lambda_0,\lambda_1)&=n_0\ln(\lambda_1)+n_1\ln(\lambda_0)+\sum_{i=1}^n \bigg[u
 \end{aligned}
 $$
 
-Where, $n_0=\sum_{i=1}^nI(u_i=0)$, $n_1=\sum_{i=1}^nI(u_i=1)$.
+where $n_0=\sum_{i=1}^nI(u_i=0)$ and $n_1=\sum_{i=1}^nI(u_i=1)$.
 
 $$
 \frac{\partial l}{\partial \lambda_0}=\frac{n_1}{\lambda_0}+\sum_{i=1}^n\bigg[(1-u_i)\frac{z_ie^{-\lambda_0z_i}}{1-e^{-\lambda_0z_i}}-u_iz_i\bigg]=0\\
